@@ -95,6 +95,16 @@ export function dueCount(decisionKeys: string[], states: Map<string, ReviewState
   return decisionKeys.filter((key) => isDue(states.get(key), now)).length;
 }
 
+/** Number of distinct root-to-leaf variations saved in the repertoire. */
+export function lineCount(graph: PositionGraph): number {
+  const routeIndex = buildRouteIndex(graph);
+  let count = 0;
+  for (const [id, route] of routeIndex) {
+    if (route.length > 0 && activeEdges(graph, id).length === 0) count += 1;
+  }
+  return count;
+}
+
 export function selectSession(
   decisionKeys: string[],
   states: Map<string, ReviewState>,

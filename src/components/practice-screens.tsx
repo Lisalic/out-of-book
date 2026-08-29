@@ -65,7 +65,6 @@ export function PracticeSetup({
     ["Due today", String(dueCount)],
     ["Decisions in book", String(decisionCount)],
     ["Playing as", repertoire.traineeColor],
-    ["After a deviation", "Play on, unlimited"],
   ];
   const nearestStop = STRENGTH_STOPS.reduce((best, stop) => (Math.abs(stop.value - strength) < Math.abs(best.value - strength) ? stop : best));
 
@@ -74,19 +73,16 @@ export function PracticeSetup({
       <header className="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center gap-6">
         <button type="button" className="mono justify-self-start text-xs text-ink-muted hover:text-ink" onClick={onBack}>← Back to books</button>
         <span className="justify-self-center text-base font-semibold tracking-tight capitalize">{repertoire.name}</span>
-        <span className="mono justify-self-end text-[11px] text-ink-faint">Step 2 of 2</span>
+        <span />
       </header>
 
       <div className="grid grid-cols-1 gap-0.5 lg:grid-cols-[1fr_480px]">
         <div className="py-9">
           <p className="eyebrow">Set the opponent</p>
           <h1 className="mt-4.5 text-[64px] leading-[0.9] font-bold tracking-tighter">HOW HARD SHOULD THIS BE?</h1>
-          <p className="mt-6 max-w-[46ch] text-lg leading-relaxed text-ink-muted text-pretty">
-            Strength and deviation chance only matter once you are out of book. Recall drilling is identical at every setting.
-          </p>
           <div className="mt-11 flex flex-col gap-0.5">
             {facts.map(([label, value]) => (
-              <div key={label} className="block flex items-baseline justify-between gap-5 px-5.5 py-4.5">
+              <div key={label} className="panel flex items-baseline justify-between gap-5 px-5.5 py-4.5">
                 <span className="mono text-xs tracking-wide text-ink-muted uppercase">{label}</span>
                 <span className="text-xl font-semibold tracking-tight capitalize">{value}</span>
               </div>
@@ -95,7 +91,7 @@ export function PracticeSetup({
         </div>
 
         <div className="flex flex-col gap-0.5">
-          <div className="block p-6.5">
+          <div className="panel p-6.5">
             <div className="flex items-baseline justify-between">
               <p className="label">Engine strength</p>
               <p className="mono text-xs text-accent">≈{strength} · {nearestStop.tier.toLowerCase()}</p>
@@ -123,7 +119,7 @@ export function PracticeSetup({
                 </button>
               ))}
             </div>
-            <p className="mono mt-4 text-[11px] leading-relaxed text-ink-faint">Approximate. Browser speed and search budget both move the real number.</p>
+            <p className="mono mt-4 text-[11px] leading-relaxed text-ink-faint">Approximate — depends on your device.</p>
           </div>
 
           <div>
@@ -148,7 +144,7 @@ export function PracticeSetup({
             </div>
           </div>
 
-          <div className="block p-6.5">
+          <div className="panel p-6.5">
             <p className="label">Positions this session</p>
             <div className="mt-4 flex gap-0.5">
               {SESSION_SIZES.map((option) => (
@@ -342,20 +338,20 @@ export function TrainingScreen({
         <TakeoverBand
           tag="Off book"
           headline={`That move isn't in your book.`}
-          detail="Recall scoring stops here · you choose what happens next"
+          detail="Recall scoring stopped"
           right="Your move ▸"
         />
       ) : lineDone ? (
         <TakeoverBand
           tag={session.lineCompletionReason === "checkmate" ? "Checkmate" : "Line complete"}
-          headline={session.lineCompletionReason === "book_complete" ? "You reached the end of the saved line." : session.message ?? "Game complete."}
-          detail={session.lineCompletionReason === "checkmate" ? "Game result" : engineStatus === "evaluating" ? "Evaluating the final position…" : "Scored below"}
+          headline={session.lineCompletionReason === "book_complete" ? "End of line." : session.message ?? "Game complete."}
+          detail={session.lineCompletionReason === "checkmate" ? "Game result" : engineStatus === "evaluating" ? "Evaluating…" : "Scored below"}
           right={currentLine < lineCount ? "Next line ▸" : "Review ▸"}
         />
       ) : session.takeoverReason ? (
         <TakeoverBand
           tag="Out of book"
-          headline="Your opponent left the repertoire. This is now a normal game."
+          headline="Opponent left the book."
           detail={`Engine ≈${session.strength} · no move limit`}
           right={isPlayersTurn ? "Your move ▸" : "Opponent to move"}
         />
@@ -363,7 +359,7 @@ export function TrainingScreen({
         <div className="flex h-11 items-center gap-2 px-4 sm:px-9">
           <span className={`h-2 w-2 flex-none bg-accent ${engineStatus === "thinking" ? "animate-pulse" : ""}`} aria-hidden="true" />
           <span className="mono text-xs text-ink-muted">
-            {engineStatus === "thinking" ? "Opponent thinking…" : isPlayersTurn ? "Your move · following your repertoire" : "Opponent to move · following your repertoire"}
+            {engineStatus === "thinking" ? "Opponent thinking…" : isPlayersTurn ? "Your move" : "Opponent to move"}
           </span>
         </div>
       )}
@@ -387,19 +383,19 @@ export function TrainingScreen({
           <FigurineMoveList moves={session.moves} viewIndex={viewIndex} onSelectPly={setViewIndex} />
 
           {session.phase === "off_repertoire" && (
-            <div className="block p-6.5">
+            <div className="panel p-6.5">
               <p className="label">Your book said</p>
               <div className="mt-3.5 flex flex-wrap gap-2">
                 {acceptedMoves.length ? acceptedMoves.map((edge) => (
                   <span key={edge.id} className="mono bg-line px-4.5 py-3 text-base font-bold">{figurineSan(edge.san)}</span>
                 )) : <span className="mono text-ink-faint">No saved answer</span>}
               </div>
-              <p className="mono mt-3.5 text-[11px] leading-relaxed text-ink-muted">Nothing was marked wrong. {lastPly?.san ? `${figurineSan(lastPly.san)} just isn't a saved line.` : "That move isn't a saved line."}</p>
+              <p className="mono mt-3.5 text-[11px] leading-relaxed text-ink-muted">{lastPly?.san ? `${figurineSan(lastPly.san)} isn't a saved line.` : "Not a saved line."}</p>
             </div>
           )}
 
           {lineDone && (
-            <div className="block grid place-items-center gap-1 p-7 text-center">
+            <div className="panel grid place-items-center gap-1 p-7 text-center">
               <p className="label">
                 {session.lineCompletionReason === "checkmate" ? "Game result" : engineStatus === "evaluating" ? "Engine evaluation" : "Final evaluation"}
               </p>
@@ -412,7 +408,6 @@ export function TrainingScreen({
                       ? "Unavailable"
                       : formatEvaluation(session.lineEvaluationCp)}
               </p>
-              {session.lineCompletionReason !== "checkmate" && <p className="mono text-[11px] text-ink-faint">Positive is better for White</p>}
             </div>
           )}
 

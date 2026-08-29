@@ -100,9 +100,10 @@
   .btn-danger { color: var(--color-danger); }
   .btn-danger:hover { background: var(--color-danger-weak); }
 
-  /* A flat block — the mockup's only "surface": solid colour, no border, no radius, no shadow. */
-  .block { background: var(--color-surface-sunken); }
-  .panel { background: var(--color-surface-sunken); overflow: hidden; }
+  /* A flat panel — the mockup's only "surface": solid colour, no border, no radius, no shadow.
+     Deliberately not named "block": Tailwind's own `block` (display: block) utility is used
+     throughout for plain layout and must never pick up this background as a side effect. */
+  .panel { background: var(--color-surface-sunken); }
 
   .field { display: grid; gap: .4rem; font-family: var(--font-mono); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--color-ink-faint); }
   .field input, .field textarea, .field select {

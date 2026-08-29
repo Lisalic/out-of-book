@@ -121,9 +121,9 @@ export function RepertoireEditor({
               <p className="eyebrow">Editing · ply {history.length.toString().padStart(2, "0")}</p>
               <h1 className="mt-2 text-4xl font-bold tracking-tighter capitalize">{fenTurn(position.fen)} to move</h1>
             </div>
-            <p className="mono max-w-[26ch] text-right text-xs leading-relaxed text-ink-muted">Move a piece to add it as a line. Existing moves are highlighted.</p>
+            <p className="mono max-w-[26ch] text-right text-xs leading-relaxed text-ink-muted">Move a piece to add a line.</p>
           </div>
-          <div className="block p-3.5">
+          <div className="panel p-3.5">
             <Chessboard
               fen={position.fen}
               orientation={boardFlipped ? (repertoire.traineeColor === "white" ? "black" : "white") : repertoire.traineeColor}
@@ -146,7 +146,7 @@ export function RepertoireEditor({
         </div>
 
         <aside className="flex flex-col gap-0.5">
-          <div className="block flex items-center justify-between gap-4 p-5">
+          <div className="panel flex items-center justify-between gap-4 p-5">
             <p className="label">Book side</p>
             <div className="flex gap-0.5">
               {(["white", "black"] as const).map((color) => (
@@ -186,9 +186,8 @@ export function RepertoireEditor({
           {tab === "moves" ? (
             <RepertoireLine graph={repertoire.graph} currentId={position.id} history={history} onNavigate={onNavigate} onRemove={onRemoveMove} onSetMainline={onSetMainline} />
           ) : (
-            <div className="block p-6.5">
+            <div className="panel p-6.5">
               <p className="label">Paste PGN</p>
-              <p className="mt-3.5 leading-relaxed text-ink-muted">Imports merge into this book. Transpositions collapse to one position; nothing existing is discarded.</p>
               <label className="mt-4 grid gap-1.5">
                 <span className="sr-only">PGN text</span>
                 <div className="relative">
@@ -203,7 +202,7 @@ export function RepertoireEditor({
                 </div>
               </label>
               <label className="mono mt-3.5 block bg-canvas p-3.5 text-xs text-ink-muted">
-                Choose a .pgn file
+                Choose a PGN file
                 <input type="file" accept=".pgn,text/plain" className="mt-1.5 block w-full text-xs" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then((text) => { setPgn(text); setPreview(undefined); }); }} />
               </label>
               {error && <p role="alert" className="mt-3.5 bg-danger-weak p-3.5 text-danger">{error}</p>}

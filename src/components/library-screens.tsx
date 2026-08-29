@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { decisionPositions, dueCount } from "@/lib/chess/scheduling";
+import { decisionPositions, dueCount, lineCount } from "@/lib/chess/scheduling";
 import type { Repertoire, ReviewState, TrainingSession } from "@/lib/chess/types";
 
 function repertoireStats(repertoire: Repertoire, states: ReviewState[]) {
@@ -9,8 +9,8 @@ function repertoireStats(repertoire: Repertoire, states: ReviewState[]) {
   const repStates = states.filter((state) => state.repertoireId === repertoire.id);
   const reviewed = repStates.filter((state) => decisions.includes(state.positionKey)).length;
   return {
-    moves: Object.values(repertoire.graph.edges).filter((edge) => !edge.deletedAt).length,
     decisions: decisions.length,
+    lines: lineCount(repertoire.graph),
     coverage: decisions.length ? Math.round((reviewed / decisions.length) * 100) : 0,
     due: dueCount(decisions, new Map(repStates.map((state) => [state.positionKey, state]))),
   };
@@ -47,11 +47,11 @@ interface RepertoireRowProps {
 
 function RepertoireRow({ repertoire, stats, actions }: RepertoireRowProps) {
   return (
-    <div className="block grid grid-cols-1 items-center gap-4 p-5 sm:grid-cols-[56px_1fr_150px_90px_auto] sm:gap-6">
+    <div className="panel grid grid-cols-1 items-center gap-4 p-5 sm:grid-cols-[56px_1fr_150px_90px_auto] sm:gap-6">
       <SideChip color={repertoire.traineeColor} />
       <div className="min-w-0">
         <p className="truncate text-xl font-semibold tracking-tight">{repertoire.name}</p>
-        <p className="mono mt-1 text-[11px] text-ink-muted capitalize">{repertoire.traineeColor} · {stats.decisions} decisions · {stats.moves} moves</p>
+        <p className="mono mt-1 text-[11px] text-ink-muted">{stats.lines} line{stats.lines === 1 ? "" : "s"}</p>
       </div>
       <CoverageBar percent={stats.coverage} />
       <p className={`mono text-base font-bold ${stats.due > 0 ? "text-accent" : "text-ink-faint"}`}>{stats.due > 0 ? stats.due : "—"}</p>
@@ -62,7 +62,7 @@ function RepertoireRow({ repertoire, stats, actions }: RepertoireRowProps) {
 
 function EmptyPanel({ icon, title, detail, action }: { icon: string; title: string; detail: string; action: React.ReactNode }) {
   return (
-    <div className="block grid min-h-72 place-items-center gap-3 p-8 text-center">
+    <div className="panel grid min-h-72 place-items-center gap-3 p-8 text-center">
       <span className="text-4xl text-ink-dim" aria-hidden="true">{icon}</span>
       <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
       <p className="max-w-sm text-ink-muted">{detail}</p>
@@ -71,11 +71,11 @@ function EmptyPanel({ icon, title, detail, action }: { icon: string; title: stri
   );
 }
 
-function PageHeading({ kicker, title, detail, action }: { kicker: string; title: string; detail: string; action?: React.ReactNode }) {
+function PageHeading({ kicker, title, detail, action }: { kicker?: string; title: string; detail: string; action?: React.ReactNode }) {
   return (
     <div className="mb-9 flex flex-wrap items-end justify-between gap-6">
       <div className="max-w-2xl">
-        <p className="eyebrow">{kicker}</p>
+        {kicker && <p className="eyebrow">{kicker}</p>}
         <h1 className="mt-3 text-[52px] leading-[0.92] font-bold tracking-tighter text-balance sm:text-[64px]">{title}</h1>
         {detail && <p className="mt-4 text-lg text-ink-muted text-pretty">{detail}</p>}
       </div>
@@ -88,7 +88,7 @@ function PageHeading({ kicker, title, detail, action }: { kicker: string; title:
 function FirstRunHero({ onImport, onTryDrill }: { onImport: () => void; onTryDrill: () => void }) {
   return (
     <div>
-      <p className="eyebrow">Repertoire sparring · runs in your browser</p>
+      <p className="eyebrow">Repertoire sparring</p>
       <h1 className="mt-5 text-[15vw] leading-[0.86] font-bold tracking-tighter sm:text-[92px]">
         KNOW THE
         <br />
@@ -96,27 +96,22 @@ function FirstRunHero({ onImport, onTryDrill }: { onImport: () => void; onTryDri
         <br />
         <span className="bg-accent px-3 text-accent-ink">PLAY ON.</span>
       </h1>
-      <p className="mt-8 max-w-[44ch] text-xl leading-relaxed text-ink-secondary text-pretty">
-        Trainers test whether you remember a move. Opponents leave the book. Out of Book drills your saved lines,
-        then hands the position to a local chess engine at the ply your preparation runs out — and never tells you
-        which ply that will be.
-      </p>
       <div className="mt-8 flex flex-wrap gap-0.5">
         <button type="button" className="btn btn-primary px-8 py-5 text-sm" onClick={onImport}>Import a PGN</button>
         <button type="button" className="btn px-8 py-5 text-sm" onClick={onTryDrill}>Build on the board</button>
       </div>
       <div className="mt-13 grid grid-cols-1 gap-0.5 sm:grid-cols-3">
-        <div className="block p-6">
+        <div className="panel p-6">
           <p className="text-5xl font-bold tracking-tighter">0</p>
-          <p className="mono mt-3 text-[11px] leading-relaxed text-ink-muted">moves sent to a server — the engine is local</p>
+          <p className="mono mt-3 text-[11px] leading-relaxed text-ink-muted">server calls</p>
         </div>
-        <div className="block p-6">
+        <div className="panel p-6">
           <p className="text-5xl font-bold tracking-tighter text-accent">2</p>
-          <p className="mono mt-3 text-[11px] leading-relaxed text-ink-muted">scores, kept apart: recall and chess quality</p>
+          <p className="mono mt-3 text-[11px] leading-relaxed text-ink-muted">separate scores</p>
         </div>
-        <div className="block p-6">
+        <div className="panel p-6">
           <p className="text-5xl font-bold tracking-tighter">∞</p>
-          <p className="mono mt-3 text-[11px] leading-relaxed text-ink-muted">plies of sparring once your book ends</p>
+          <p className="mono mt-3 text-[11px] leading-relaxed text-ink-muted">sparring plies</p>
         </div>
       </div>
     </div>
@@ -143,8 +138,7 @@ export function HomeScreen({ repertoires, reviewStates, session, onPractice, onM
     [repertoires, reviewStates],
   );
   const totalDue = useMemo(() => rows.reduce((sum, row) => sum + row.stats.due, 0), [rows]);
-  const totalMoves = useMemo(() => rows.reduce((sum, row) => sum + row.stats.moves, 0), [rows]);
-  const totalDecisions = useMemo(() => rows.reduce((sum, row) => sum + row.stats.decisions, 0), [rows]);
+  const totalLines = useMemo(() => rows.reduce((sum, row) => sum + row.stats.lines, 0), [rows]);
   const dateLabel = useMemo(() => new Date(now).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }), [now]);
   const reviewedAnywhere = reviewStates.length > 0;
   const cleanRecallPercent = reviewedAnywhere
@@ -179,10 +173,10 @@ export function HomeScreen({ repertoires, reviewStates, session, onPractice, onM
       </div>
 
       <div className="grid grid-cols-1 gap-0.5 lg:grid-cols-[1fr_320px]">
-        <div className="block p-9">
+        <div className="panel p-9">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <h2 className="text-sm font-bold tracking-[0.14em] uppercase">Repertoires</h2>
-            <p className="mono text-[11px] text-ink-faint">{repertoires.length} · {totalMoves} moves · {totalDecisions} decisions</p>
+            <p className="mono text-[11px] text-ink-faint">{totalLines} line{totalLines === 1 ? "" : "s"}</p>
           </div>
           <div className="mt-4.5 flex flex-col gap-0.5">
             {rows.slice(0, 4).map(({ repertoire, stats }) => (
@@ -196,13 +190,13 @@ export function HomeScreen({ repertoires, reviewStates, session, onPractice, onM
           </div>
           <div className="mt-0.5 flex gap-0.5">
             <button type="button" className="btn flex-1 justify-start px-5.5 py-4.5 text-accent" onClick={onManage}>+ New repertoire</button>
-            <button type="button" className="btn flex-1 justify-start px-5.5 py-4.5" onClick={onManage}>Import .pgn</button>
+            <button type="button" className="btn flex-1 justify-start px-5.5 py-4.5" onClick={onManage}>Import PGN</button>
           </div>
         </div>
 
         <div className="flex flex-col gap-0.5">
           {activeRepertoire && session?.phase !== "review" && (
-            <button type="button" onClick={onResume} className="block p-6.5 text-left">
+            <button type="button" onClick={onResume} className="panel p-6.5 text-left">
               <p className="label">Paused drill</p>
               <p className="mt-3 text-xl font-semibold tracking-tight capitalize">
                 {activeRepertoire.name}
@@ -214,10 +208,10 @@ export function HomeScreen({ repertoires, reviewStates, session, onPractice, onM
               <p className="mono mt-4.5 text-xs font-bold text-accent">Resume →</p>
             </button>
           )}
-          <div className="block flex-1 p-6.5">
+          <div className="panel flex-1 p-6.5">
             <p className="label">Recall · all time</p>
             {cleanRecallPercent === null ? (
-              <p className="mt-4 max-w-[24ch] text-ink-muted">Recall shows up here once you&rsquo;ve practised a few positions.</p>
+              <p className="mt-4 max-w-[24ch] text-ink-muted">Practise a few positions first.</p>
             ) : (
               <>
                 <p className="mt-3 text-[56px] leading-[0.88] font-bold tracking-tighter">
@@ -247,7 +241,7 @@ interface PracticeLibraryProps {
 export function PracticeLibrary({ repertoires, reviewStates, onPractice, onEdit, onManage }: PracticeLibraryProps) {
   return (
     <section className="mx-auto w-[min(1180px,calc(100%-56px))] flex-1 py-11">
-      <PageHeading kicker="Step 1 of 2 · choose a book" title="WHAT ARE WE DRILLING?" detail="A session pulls your due positions first, then weak ones, then anything you have not seen yet." />
+      <PageHeading title="WHAT ARE WE DRILLING?" detail="" />
       {repertoires.length === 0 ? (
         <EmptyPanel
           icon="♟"
@@ -303,7 +297,7 @@ export function RepertoireManager({ repertoires, reviewStates, onCreate, onEdit,
         <EmptyPanel
           icon="＋"
           title="Create your first repertoire"
-          detail="Add lines by moving pieces on the board, or paste a PGN once you're in the editor."
+          detail="Move pieces on the board, or paste a PGN."
           action={<button type="button" className="btn btn-primary" onClick={onCreate}>New book</button>}
         />
       ) : (
@@ -326,7 +320,6 @@ export function RepertoireManager({ repertoires, reviewStates, onCreate, onEdit,
           })}
         </div>
       )}
-      <p className="mono mt-5 text-[11px] leading-relaxed text-ink-faint">Deleting a book removes its schedule too. Export the PGN first if you want it back.</p>
     </section>
   );
 }

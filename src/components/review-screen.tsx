@@ -56,7 +56,7 @@ export function ReviewScreen({ session, reviewStates, onDone, onAgain }: ReviewS
           </div>
           <p className="mono mt-4.5 text-xs leading-relaxed">{firstTry} first try · {retries} corrected · {revealed} revealed</p>
         </div>
-        <div className="block p-7.5">
+        <div className="panel p-7.5">
           <p className="label">Axis 2 · chess quality after takeover</p>
           <p className="mt-3 text-8xl leading-[0.85] font-bold tracking-tighter">{meanEval === null ? "—" : formatEvaluation(meanEval)}</p>
           <div className="mt-5.5 flex h-13 items-end gap-0.5">
@@ -68,7 +68,7 @@ export function ReviewScreen({ session, reviewStates, onDone, onAgain }: ReviewS
               return <i key={index} className={`flex-1 ${cp >= 0 ? "bg-accent" : "bg-ink-dim"}`} style={{ height: `${height}%` }} />;
             })}
           </div>
-          <p className="mono mt-4.5 text-xs leading-relaxed text-ink-muted">Mean final evaluation across sparring lines. A correction never touches this number.</p>
+          <p className="mono mt-4.5 text-xs leading-relaxed text-ink-muted">Mean evaluation across sparring lines.</p>
         </div>
       </div>
 
@@ -80,7 +80,7 @@ export function ReviewScreen({ session, reviewStates, onDone, onAgain }: ReviewS
           {results.map((line) => {
             const due = dueFor(line.targetPositionKey);
             return (
-              <div className="block grid grid-cols-[48px_1.5fr_1fr_90px_90px_130px] items-center gap-4 p-4.5" key={line.lineIndex}>
+              <div className="panel grid grid-cols-[48px_1.5fr_1fr_90px_90px_130px] items-center gap-4 p-4.5" key={line.lineIndex}>
                 <span className="mono text-xs text-ink-faint">{String(line.lineIndex + 1).padStart(2, "0")}</span>
                 <span className="text-lg font-semibold tracking-tight">Position {line.lineIndex + 1}</span>
                 <span className={`mono text-[11px] tracking-wide uppercase ${line.leftBook ? "text-accent" : "text-ink-muted"}`}>

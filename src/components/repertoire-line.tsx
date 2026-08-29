@@ -94,7 +94,7 @@ export function RepertoireLine({
   }
 
   return (
-    <div className="block p-6.5">
+    <div className="panel p-6.5">
       <div className="flex items-baseline justify-between">
         <p className="label">Current line</p>
         <p className="mono text-[11px] text-ink-faint">{entries.length} plies</p>
@@ -153,7 +153,7 @@ export function RepertoireLine({
       ) : branchOptions.length === 0 ? (
         <div className="mt-6 bg-surface p-4.5 text-center">
           <p className="label">End of saved line</p>
-          <p className="mt-1.5 text-sm text-ink-muted">Move a piece on the board to continue it.</p>
+          <p className="mt-1.5 text-sm text-ink-muted">Move a piece to continue.</p>
         </div>
       ) : null}
 

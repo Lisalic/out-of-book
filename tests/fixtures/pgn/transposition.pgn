@@ -1,0 +1,9 @@
+[Event "Knight first"]
+[Result "*"]
+
+1. Nf3 Nf6 2. g3 g6 3. Bg2 Bg7 *
+
+[Event "Fianchetto first"]
+[Result "*"]
+
+1. g3 g6 2. Bg2 Bg7 3. Nf3 Nf6 *

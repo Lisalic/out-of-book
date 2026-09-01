@@ -20,13 +20,6 @@ const FREQUENCIES: Array<{ value: DeviationFrequency; label: string; note: strin
   { value: "high", label: "Often", note: "Sparring-heavy", pct: "50%" },
 ];
 
-const SESSION_SIZES: Array<{ value: number | "all"; label: string }> = [
-  { value: 10, label: "10" },
-  { value: 20, label: "20" },
-  { value: 40, label: "40" },
-  { value: "all", label: "All due" },
-];
-
 const STRENGTH_STOPS: Array<{ value: number; tier: string }> = [
   { value: 200, tier: "New" },
   { value: 800, tier: "Beginner" },
@@ -68,6 +61,7 @@ export function PracticeSetup({
     ["Playing as", repertoire.traineeColor],
   ];
   const nearestStop = STRENGTH_STOPS.reduce((best, stop) => (Math.abs(stop.value - strength) < Math.abs(best.value - strength) ? stop : best));
+  const sessionSizeMax = Math.max(decisionCount, 1);
 
   return (
     <section className="mx-auto w-[min(1180px,calc(100%-56px))] flex-1">
@@ -146,18 +140,26 @@ export function PracticeSetup({
           </div>
 
           <div className="panel p-6.5">
-            <p className="label">Positions this session</p>
-            <div className="mt-4 flex gap-0.5">
-              {SESSION_SIZES.map((option) => (
-                <button
-                  key={option.label}
-                  type="button"
-                  onClick={() => onSessionSizeChange(option.value)}
-                  className={`mono flex-1 py-4 text-sm font-bold ${sessionSize === option.value ? "bg-accent text-accent-ink" : "bg-line text-ink-muted hover:text-ink"}`}
-                >
-                  {option.label}
-                </button>
-              ))}
+            <div className="flex items-baseline justify-between">
+              <p className="label">Positions this session</p>
+              <p className="mono text-xs text-accent">{sessionSize === "all" ? "All due" : sessionSize}</p>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={sessionSizeMax}
+              step={1}
+              value={sessionSize === "all" ? sessionSizeMax : Math.min(sessionSize, sessionSizeMax)}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+                onSessionSizeChange(value >= sessionSizeMax ? "all" : value);
+              }}
+              className="mt-5 w-full accent-accent"
+              aria-label="Positions this session"
+            />
+            <div className="mt-2 flex justify-between">
+              <span className="mono text-[10px] text-ink-faint">0</span>
+              <span className="mono text-[10px] text-ink-faint">All due</span>
             </div>
           </div>
 

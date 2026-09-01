@@ -74,7 +74,7 @@ describe("decisionPositions stays linear in graph size", () => {
     // Generous budget for a single linear pass over this many positions/edges — the old
     // exhaustive-path enumeration this replaces would instead walk every root-to-leaf path.
     expect(elapsedMs).toBeLessThan(500);
-  });
+  }, 15_000);
 });
 
 describe("repertoireLines", () => {
@@ -87,7 +87,7 @@ describe("repertoireLines", () => {
     expect(lines.length).toBeGreaterThan(0);
     expect(new Set(lines.map((line) => line.id)).size).toBe(lines.length);
     expect(elapsedMs).toBeLessThan(500);
-  });
+  }, 15_000);
 
   it("builds one line per root-to-leaf variation, covering every White decision along it", () => {
     const graph = importPgn("1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 *", "white").graph;

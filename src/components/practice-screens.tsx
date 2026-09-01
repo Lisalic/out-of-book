@@ -28,11 +28,11 @@ const SESSION_SIZES: Array<{ value: number | "all"; label: string }> = [
 ];
 
 const STRENGTH_STOPS: Array<{ value: number; tier: string }> = [
-  { value: 1000, tier: "Beginner" },
-  { value: 1400, tier: "Club" },
-  { value: 1700, tier: "Advanced" },
+  { value: 200, tier: "New" },
+  { value: 800, tier: "Beginner" },
+  { value: 1200, tier: "Club" },
+  { value: 1600, tier: "Advanced" },
   { value: 2000, tier: "Strong" },
-  { value: 2200, tier: "Expert" },
 ];
 
 interface PracticeSetupProps {
@@ -101,7 +101,7 @@ export function PracticeSetup({
               type="range"
               min={MIN_ENGINE_ELO}
               max={MAX_ENGINE_ELO}
-              step="20"
+              step="100"
               value={strength}
               onChange={(event) => onStrengthChange(Number(event.target.value))}
               className="mt-5 w-full accent-accent"

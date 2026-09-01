@@ -7,8 +7,8 @@ import type { EngineCandidate } from "./types";
  * plus weighted sampling among its MultiPV candidates so it doesn't always
  * play the objectively best move.
  */
-export const MIN_ENGINE_ELO = 900;
-export const MAX_ENGINE_ELO = 2200;
+export const MIN_ENGINE_ELO = 200;
+export const MAX_ENGINE_ELO = 2000;
 
 /**
  * Search time budget for a given approximate strength — weaker play searches a bit less

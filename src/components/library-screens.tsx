@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { Chessboard } from "./chessboard";
+import { OpeningPicker } from "./opening-picker";
+import type { OpeningPreset } from "@/lib/chess/opening-presets";
 import { decisionPositions, dueLineCount, repertoireLines } from "@/lib/chess/scheduling";
-import type { Repertoire, ReviewState, TrainingSession } from "@/lib/chess/types";
+import type { Repertoire, ReviewState, TrainingSession, TraineeColor } from "@/lib/chess/types";
 
 function repertoireStats(repertoire: Repertoire, states: ReviewState[]) {
   const decisions = decisionPositions(repertoire.graph, repertoire.traineeColor);
@@ -223,15 +225,31 @@ export function HomeScreen({ repertoires, reviewStates, session, onPractice, onM
 interface PracticeLibraryProps {
   repertoires: Repertoire[];
   reviewStates: ReviewState[];
+  presetSide: TraineeColor;
+  onPresetSideChange: (side: TraineeColor) => void;
+  onPresetSelect: (preset: OpeningPreset) => void | Promise<void>;
   onPractice: (id: string) => void;
   onEdit: (id: string) => void;
   onManage: () => void;
 }
 
-export function PracticeLibrary({ repertoires, reviewStates, onPractice, onEdit, onManage }: PracticeLibraryProps) {
+export function PracticeLibrary({
+  repertoires,
+  reviewStates,
+  presetSide,
+  onPresetSideChange,
+  onPresetSelect,
+  onPractice,
+  onEdit,
+  onManage,
+}: PracticeLibraryProps) {
   return (
     <section className="mx-auto w-[min(1180px,calc(100%-56px))] flex-1 py-11">
-      <PageHeading title="WHAT ARE WE DRILLING?" detail="" />
+      <PageHeading
+        title="WHAT ARE WE DRILLING?"
+        detail=""
+        action={<OpeningPicker repertoires={repertoires} side={presetSide} onSideChange={onPresetSideChange} onSelect={onPresetSelect} />}
+      />
       {repertoires.length === 0 ? (
         <EmptyPanel
           icon="♟"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppHeader, type AppSection } from "./app-header";
 import { HomeScreen, PracticeLibrary, RepertoireManager } from "./library-screens";
 import { PracticeSetup, TrainingScreen } from "./practice-screens";
@@ -18,6 +18,8 @@ import {
 } from "@/lib/chess/graph";
 import { planLineDeviation } from "@/lib/chess/drill";
 import { seededRandom } from "@/lib/chess/deviation";
+import { presetMovetext, type OpeningPreset } from "@/lib/chess/opening-presets";
+import { importPgn } from "@/lib/chess/pgn";
 import { START_FEN } from "@/lib/chess/rules";
 import {
   dueLineCount,
@@ -87,8 +89,10 @@ export function SparringApp() {
   const [sessionSize, setSessionSize] = useState<number | "all">(20);
   const [session, setSession] = useState<TrainingSession>();
   const [editorTab, setEditorTab] = useState<"moves" | "import">("moves");
+  const [presetSide, setPresetSide] = useState<TraineeColor>("white");
   const [loading, setLoading] = useState(true);
   const [storageError, setStorageError] = useState<string>();
+  const presetSelectionPending = useRef(false);
 
   const repertoire = useMemo(() => repertoires.find((item) => item.id === selectedId), [repertoires, selectedId]);
   const trainingEngine = useTrainingEngine(screen === "train", session, repertoire, setSession);
@@ -185,6 +189,51 @@ export function SparringApp() {
     setScreen("setup");
   }
 
+  async function selectPreset(preset: OpeningPreset) {
+    if (presetSelectionPending.current) return;
+    presetSelectionPending.current = true;
+    try {
+      const existing = repertoires.find(
+        (item) => item.sourcePresetId === preset.id && item.traineeColor === presetSide,
+      );
+      if (existing) {
+        preparePractice(existing.id);
+        return;
+      }
+
+      let graph: PositionGraph;
+      try {
+        graph = importPgn(presetMovetext(preset), presetSide).graph;
+      } catch {
+        setStorageError("This opening preset could not be loaded.");
+        return;
+      }
+
+      const timestamp = new Date().toISOString();
+      const created: Repertoire = {
+        id: createId("repertoire"),
+        name: `${preset.name} · ${presetSide === "white" ? "White" : "Black"}`,
+        traineeColor: presetSide,
+        sourcePresetId: preset.id,
+        graph,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        revision: 1,
+      };
+      try {
+        await saveRepertoire(created);
+      } catch {
+        setStorageError("This opening could not be saved locally.");
+        return;
+      }
+      setStorageError(undefined);
+      setRepertoires((items) => [created, ...items]);
+      preparePractice(created.id);
+    } finally {
+      presetSelectionPending.current = false;
+    }
+  }
+
   async function removeRepertoire(id: string) {
     const target = repertoires.find((item) => item.id === id);
     if (!target || !window.confirm(`Delete "${target.name}"?`)) return;
@@ -211,7 +260,7 @@ export function SparringApp() {
     Object.values(graph.edges).forEach((edge) => {
       edge.isAccepted = graph.positions[edge.from].fen.split(" ")[1] === (color === "white" ? "w" : "b");
     });
-    void persistRepertoire({ ...repertoire, traineeColor: color, graph, revision: repertoire.revision + 1, updatedAt: new Date().toISOString() });
+    void persistRepertoire({ ...repertoire, traineeColor: color, sourcePresetId: undefined, graph, revision: repertoire.revision + 1, updatedAt: new Date().toISOString() });
   }
 
   function editorMove(uci: string) {
@@ -354,7 +403,16 @@ export function SparringApp() {
         />
       )}
       {screen === "practice" && (
-        <PracticeLibrary repertoires={repertoires} reviewStates={reviewStates} onPractice={preparePractice} onEdit={editRepertoire} onManage={() => navigate("manage")} />
+        <PracticeLibrary
+          repertoires={repertoires}
+          reviewStates={reviewStates}
+          presetSide={presetSide}
+          onPresetSideChange={setPresetSide}
+          onPresetSelect={selectPreset}
+          onPractice={preparePractice}
+          onEdit={editRepertoire}
+          onManage={() => navigate("manage")}
+        />
       )}
       {screen === "manage" && (
         <RepertoireManager repertoires={repertoires} reviewStates={reviewStates} onCreate={() => void createRepertoire()} onEdit={editRepertoire} onDelete={(id) => void removeRepertoire(id)} />

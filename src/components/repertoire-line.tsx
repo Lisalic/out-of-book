@@ -25,6 +25,42 @@ interface RepertoireLineProps {
   onSetMainline: (edgeId: string) => void;
 }
 
+/** The move that was played to reach the position on the board, if any. */
+function incomingEdge(graph: PositionGraph, currentId: string, history: string[]): MoveEdge | undefined {
+  const previous = history.at(-1);
+  if (!previous) return undefined;
+  return activeEdges(graph, previous).find((edge) => edge.to === currentId);
+}
+
+function RemoveCurrentButton({
+  edge,
+  history,
+  onRemove,
+  onNavigate,
+}: {
+  edge: MoveEdge;
+  history: string[];
+  onRemove: (edgeId: string) => void;
+  onNavigate: (positionId: string, history: string[]) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="btn btn-danger mt-3.5 w-full"
+      onClick={() => {
+        onRemove(edge.id);
+        onNavigate(edge.from, history.slice(0, -1));
+      }}
+    >
+      Remove {edge.san}
+    </button>
+  );
+}
+
+/**
+ * The box has exactly one mode, always agreeing with the board: a fork on the board replaces the
+ * move list outright with a numbered picker, and the move list never extends past a fork.
+ */
 export function RepertoireLine({
   graph,
   currentId,
@@ -33,6 +69,54 @@ export function RepertoireLine({
   onRemove,
   onSetMainline,
 }: RepertoireLineProps) {
+  const options = activeEdges(graph, currentId);
+  const arrivedBy = incomingEdge(graph, currentId, history);
+
+  if (options.length > 1) {
+    return (
+      <div className="panel p-6.5">
+        <div className="flex items-baseline justify-between">
+          <p className="label">Choose continuation</p>
+          <p className="mono text-[11px] text-accent">{options.length} variations</p>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-0.5" aria-label="Repertoire branch options">
+          {options.map((edge, index) => (
+            <div key={edge.id} className="mono grid grid-cols-[auto_auto_1fr_auto_auto] items-center gap-3.5 bg-surface p-3">
+              <span className="min-w-6 bg-line px-2 py-1 text-center text-[11px] font-bold text-ink-muted">{index + 1}</span>
+              <button
+                type="button"
+                className="min-w-13 border-0 bg-transparent p-0 text-left text-lg font-bold"
+                aria-label={`Continue with ${edge.san}`}
+                aria-keyshortcuts={String(index + 1)}
+                onClick={() => onNavigate(edge.to, [...history, currentId])}
+              >
+                {figurineSan(edge.san)}
+              </button>
+              <span className="text-[11px] text-ink-muted">{edge.isAccepted ? "Your answer" : "Opponent line"}</span>
+              {edge.isMainline ? (
+                <span className="bg-accent px-2.5 py-1.5 text-[10px] font-bold tracking-wide text-accent-ink uppercase">Mainline</span>
+              ) : (
+                <button type="button" className="bg-line px-2.5 py-1.5 text-[10px] font-bold tracking-wide text-ink-muted uppercase hover:text-ink" onClick={() => onSetMainline(edge.id)}>
+                  Set main
+                </button>
+              )}
+              <button type="button" className="text-sm text-ink-muted hover:text-danger" aria-label={`Remove ${edge.san}`} onClick={() => onRemove(edge.id)}>
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <p className="mono mt-3.5 text-[11px] text-ink-faint">
+          Press 1–{options.length}, or → for the mainline.
+        </p>
+
+        {arrivedBy && <RemoveCurrentButton edge={arrivedBy} history={history} onRemove={onRemove} onNavigate={onNavigate} />}
+      </div>
+    );
+  }
+
   const entries: LineEntry[] = [];
   const pathPositions = [...history, currentId];
 
@@ -63,7 +147,7 @@ export function RepertoireLine({
     visited.add(branchPosition);
   }
 
-  const branchOptions = activeEdges(graph, branchPosition);
+  const branchAhead = activeEdges(graph, branchPosition);
   const rows: MoveRow[] = [];
   entries.forEach((entry) => {
     const fenFields = graph.positions[entry.edge.from].fen.split(" ");
@@ -100,7 +184,7 @@ export function RepertoireLine({
         <p className="mono text-[11px] text-ink-faint">{entries.length} plies</p>
       </div>
 
-      {rows.length ? (
+      {rows.length > 0 && (
         <div className="mt-4 flex flex-col gap-0.5" aria-label="Repertoire move list">
           {rows.map((row, index) => (
             <div className="grid grid-cols-[34px_1fr_1fr] items-center gap-2.5" key={`${row.number}-${index}`}>
@@ -110,8 +194,6 @@ export function RepertoireLine({
             </div>
           ))}
         </div>
-      ) : (
-        <p className="mt-4 text-ink-muted">The line starts from this position.</p>
       )}
 
       {selectedEntry && (selectedEntry.edge.comments.length > 0 || selectedEntry.edge.nags.length > 0) && (
@@ -123,52 +205,21 @@ export function RepertoireLine({
         </div>
       )}
 
-      {branchOptions.length > 1 ? (
-        <div className="mt-6">
-          <div className="flex items-baseline justify-between">
-            <p className="label">Branch reached</p>
-            <p className="mono text-[11px] text-accent">{branchOptions.length} replies saved</p>
-          </div>
-          <div className="mt-3.5 flex flex-col gap-0.5">
-            {branchOptions.map((edge) => (
-              <div key={edge.id} className="mono grid grid-cols-[auto_1fr_auto_auto] items-center gap-3.5 bg-surface p-3">
-                <button type="button" className="min-w-13 border-0 bg-transparent p-0 text-left text-lg font-bold" onClick={() => onNavigate(edge.to, [...branchHistory, branchPosition])}>
-                  {figurineSan(edge.san)}
-                </button>
-                <span className="text-[11px] text-ink-muted">{edge.isAccepted ? "Your answer" : "Opponent line"}</span>
-                {edge.isMainline ? (
-                  <span className="bg-accent px-2.5 py-1.5 text-[10px] font-bold tracking-wide text-accent-ink uppercase">Mainline</span>
-                ) : (
-                  <button type="button" className="bg-line px-2.5 py-1.5 text-[10px] font-bold tracking-wide text-ink-muted uppercase hover:text-ink" onClick={() => onSetMainline(edge.id)}>
-                    Set main
-                  </button>
-                )}
-                <button type="button" className="text-sm text-ink-muted hover:text-danger" aria-label={`Remove ${edge.san}`} onClick={() => onRemove(edge.id)}>
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : branchOptions.length === 0 ? (
+      {branchAhead.length > 1 ? (
+        <button
+          type="button"
+          className="mono mt-6 w-full bg-surface p-4.5 text-[11px] text-ink-muted hover:text-ink"
+          onClick={() => onNavigate(branchPosition, branchHistory)}
+        >
+          Branch ahead · {branchAhead.length} continuations
+        </button>
+      ) : branchAhead.length === 0 ? (
         <div className="mt-6 bg-surface p-4.5 text-center">
           <p className="label">End of saved line</p>
-          <p className="mt-1.5 text-sm text-ink-muted">Move a piece to continue.</p>
         </div>
       ) : null}
 
-      {selectedEntry && (
-        <button
-          type="button"
-          className="btn btn-danger mt-3.5 w-full"
-          onClick={() => {
-            onRemove(selectedEntry.edge.id);
-            onNavigate(selectedEntry.edge.from, history.slice(0, -1));
-          }}
-        >
-          Remove {selectedEntry.edge.san}
-        </button>
-      )}
+      {selectedEntry && <RemoveCurrentButton edge={selectedEntry.edge} history={history} onRemove={onRemove} onNavigate={onNavigate} />}
     </div>
   );
 }

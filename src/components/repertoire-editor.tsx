@@ -106,8 +106,14 @@ export function RepertoireEditor({
   useBoardKeys({
     onFlip: toggleFlip,
     onPrev: previous ? () => onNavigate(previous, history.slice(0, -1)) : undefined,
-    onNext: branchOptions.length === 1 ? () => onNavigate(branchOptions[0].to, [...history, positionId]) : undefined,
+    onNext: branchOptions.length >= 1 ? () => onNavigate(branchOptions[0].to, [...history, positionId]) : undefined,
     onStart: history.length ? () => onNavigate(repertoire.graph.roots[0], []) : undefined,
+    onSelectOption: branchOptions.length > 1
+      ? (index) => {
+          const option = branchOptions[index];
+          if (option) onNavigate(option.to, [...history, positionId]);
+        }
+      : undefined,
   });
 
   return (

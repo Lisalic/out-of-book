@@ -10,6 +10,8 @@ export interface BoardKeyActions {
   onFlip?: () => void;
   /** Space — the screen's current primary action (e.g. Show answer, Next line). */
   onPrimary?: () => void;
+  /** Digit keys 1-9 — pick a numbered option (e.g. a branch variation), zero-indexed. */
+  onSelectOption?: (index: number) => void;
   enabled?: boolean;
 }
 
@@ -18,9 +20,9 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-/** Lichess-style board keyboard bindings: ←/→ step, ↑/↓ start/end, f flip, space for the primary action. */
+/** Lichess-style board keyboard bindings: ←/→ step, ↑/↓ start/end, f flip, space for the primary action, 1-9 to pick an option. */
 export function useBoardKeys(actions: BoardKeyActions): void {
-  const { onPrev, onNext, onStart, onEnd, onFlip, onPrimary, enabled = true } = actions;
+  const { onPrev, onNext, onStart, onEnd, onFlip, onPrimary, onSelectOption, enabled = true } = actions;
 
   useEffect(() => {
     if (!enabled) return;
@@ -57,9 +59,15 @@ export function useBoardKeys(actions: BoardKeyActions): void {
           if (!onPrimary) return;
           event.preventDefault();
           onPrimary();
+          return;
+        default:
+          if (onSelectOption && /^[1-9]$/.test(event.key)) {
+            event.preventDefault();
+            onSelectOption(Number(event.key) - 1);
+          }
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [enabled, onPrev, onNext, onStart, onEnd, onFlip, onPrimary]);
+  }, [enabled, onPrev, onNext, onStart, onEnd, onFlip, onPrimary, onSelectOption]);
 }

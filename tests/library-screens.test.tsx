@@ -104,14 +104,12 @@ describe("repertoire navigation screens", () => {
 });
 
 describe("repertoire move list", () => {
-  it("shows familiar clickable plies and exposes choices when a branch is reached", () => {
+  it("shows familiar clickable plies while standing on an unbranched line", () => {
     const graph = importPgn("1. e4 e5 2. Nf3 (2. Bc4) *", "white").graph;
     const root = graph.roots[0];
     const e4 = Object.values(graph.edges).find((edge) => edge.from === root && edge.san === "e4")!;
-    const e5 = Object.values(graph.edges).find((edge) => edge.from === e4.to && edge.san === "e5")!;
-    const bc4 = Object.values(graph.edges).find((edge) => edge.san === "Bc4")!;
+
     const onNavigate = vi.fn();
-    const onSetMainline = vi.fn();
 
     render(
       <RepertoireLine
@@ -120,24 +118,55 @@ describe("repertoire move list", () => {
         history={[]}
         onNavigate={onNavigate}
         onRemove={vi.fn()}
-        onSetMainline={onSetMainline}
+        onSetMainline={vi.fn()}
       />,
     );
 
     expect(screen.getByRole("button", { name: "Go to e4" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Go to e5" })).toBeVisible();
-    expect(screen.getByText("Branch reached")).toBeVisible();
-    // Move text renders as a figurine glyph (♘f3), not the plain SAN letter. Nf3 is the
-    // mainline answer (outside the parenthesised sideline); Bc4 is the sideline.
-    const nf3Glyph = figurineSan("Nf3");
-    const bc4Glyph = figurineSan("Bc4");
-    expect(screen.getByRole("button", { name: nf3Glyph })).toBeVisible();
-    expect(screen.getByRole("button", { name: bc4Glyph })).toBeVisible();
-    expect(screen.getByText("Mainline")).toBeVisible();
+    // The box is in line mode: no branch picker is shown while standing before the fork.
+    expect(screen.queryByText("Choose continuation")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Go to e4" }));
     expect(onNavigate).toHaveBeenCalledWith(e4.to, [root]);
-    expect(e5.san).toBe("e5");
+  });
+
+  it("replaces the box with a numbered picker when standing on a branch", () => {
+    const graph = importPgn("1. e4 e5 2. Nf3 (2. Bc4) *", "white").graph;
+    const root = graph.roots[0];
+    const e4 = Object.values(graph.edges).find((edge) => edge.from === root && edge.san === "e4")!;
+    const e5 = Object.values(graph.edges).find((edge) => edge.from === e4.to && edge.san === "e5")!;
+    const bc4 = Object.values(graph.edges).find((edge) => edge.san === "Bc4")!;
+    const onNavigate = vi.fn();
+    const onSetMainline = vi.fn();
+    const history = [root, e4.to];
+
+    render(
+      <RepertoireLine
+        graph={graph}
+        currentId={e5.to}
+        history={history}
+        onNavigate={onNavigate}
+        onRemove={vi.fn()}
+        onSetMainline={onSetMainline}
+      />,
+    );
+
+    expect(screen.getByText("Choose continuation")).toBeVisible();
+    expect(screen.getByText("2 variations")).toBeVisible();
+    expect(screen.getByText("1")).toBeVisible();
+    expect(screen.getByText("2")).toBeVisible();
+    // Move text renders as a figurine glyph (♘f3), not the plain SAN letter. Nf3 is the
+    // mainline answer (outside the parenthesised sideline); Bc4 is the sideline.
+    expect(screen.getByText(figurineSan("Nf3"))).toBeVisible();
+    expect(screen.getByText(figurineSan("Bc4"))).toBeVisible();
+    expect(screen.getByText("Mainline")).toBeVisible();
+    // The line-mode ply list is gone entirely while at the branch.
+    expect(screen.queryByRole("button", { name: "Go to e4" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue with Nf3" }));
+    const nf3 = Object.values(graph.edges).find((edge) => edge.san === "Nf3")!;
+    expect(onNavigate).toHaveBeenCalledWith(nf3.to, [...history, e5.to]);
 
     // Only the sideline (Bc4) gets a "Set main" button — Nf3 already is the mainline.
     fireEvent.click(screen.getByRole("button", { name: "Set main" }));

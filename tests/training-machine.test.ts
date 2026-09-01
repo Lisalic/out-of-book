@@ -43,7 +43,6 @@ describe("training state machine", () => {
     const { graph, session } = setup();
     const miss = submitTraineeMove(session, graph, "d2d4", 1_500);
     expect(miss.phase).toBe("off_repertoire");
-    expect(miss.message).toContain("not in your repertoire");
     expect(miss.moves).toHaveLength(0);
     const retry = retryRepertoireMove(miss, 1_600);
     const recovered = submitTraineeMove(retry, graph, "e2e4", 2_000);

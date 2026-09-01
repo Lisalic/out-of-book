@@ -1,11 +1,9 @@
 "use client";
 
 export type AppSection = "home" | "practice" | "repertoires";
-export type SaveStatus = "saved" | "error";
 
 interface AppHeaderProps {
   active: AppSection;
-  saveStatus: SaveStatus;
   onNavigate: (section: AppSection) => void;
 }
 
@@ -15,7 +13,7 @@ const SECTIONS: Array<{ id: AppSection; label: string }> = [
   { id: "repertoires", label: "Repertoires" },
 ];
 
-export function AppHeader({ active, saveStatus, onNavigate }: AppHeaderProps) {
+export function AppHeader({ active, onNavigate }: AppHeaderProps) {
   return (
     <header className="grid h-[72px] grid-cols-[auto_1fr_auto] items-center gap-8 bg-canvas px-4 sm:px-9">
       <button
@@ -43,9 +41,7 @@ export function AppHeader({ active, saveStatus, onNavigate }: AppHeaderProps) {
         ))}
       </nav>
 
-      <span className={`mono hidden text-[11px] sm:inline ${saveStatus === "error" ? "text-danger" : "text-ink-faint"}`}>
-        {saveStatus === "error" ? "Not saved" : "Saved on this device"}
-      </span>
+      <span />
     </header>
   );
 }

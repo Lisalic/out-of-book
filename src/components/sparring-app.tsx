@@ -86,6 +86,7 @@ export function SparringApp() {
   const [frequency, setFrequency] = useState<DeviationFrequency>("low");
   const [sessionSize, setSessionSize] = useState<number | "all">(20);
   const [session, setSession] = useState<TrainingSession>();
+  const [editorTab, setEditorTab] = useState<"moves" | "import">("moves");
   const [loading, setLoading] = useState(true);
   const [storageError, setStorageError] = useState<string>();
 
@@ -147,7 +148,7 @@ export function SparringApp() {
     }
   }
 
-  async function createRepertoire() {
+  async function createRepertoire(tab: "moves" | "import" = "moves") {
     const graph = emptyGraph();
     const rootId = ensurePosition(graph, START_FEN, 0).id;
     graph.roots.push(rootId);
@@ -165,6 +166,7 @@ export function SparringApp() {
     setSelectedId(created.id);
     setEditorPosition(rootId);
     setEditorHistory([]);
+    setEditorTab(tab);
     setScreen("editor");
   }
 
@@ -174,6 +176,7 @@ export function SparringApp() {
     setSelectedId(id);
     setEditorPosition(target.graph.roots[0]);
     setEditorHistory([]);
+    setEditorTab("moves");
     setScreen("editor");
   }
 
@@ -184,7 +187,7 @@ export function SparringApp() {
 
   async function removeRepertoire(id: string) {
     const target = repertoires.find((item) => item.id === id);
-    if (!target || !window.confirm(`Delete "${target.name}" from this device?`)) return;
+    if (!target || !window.confirm(`Delete "${target.name}"?`)) return;
     try {
       await deleteRepertoire(id);
       const remaining = repertoires.filter((item) => item.id !== id);
@@ -326,7 +329,7 @@ export function SparringApp() {
 
   return (
     <main className="flex min-h-screen flex-col">
-      {showHeader && <AppHeader active={appSection(screen)} saveStatus={storageError ? "error" : "saved"} onNavigate={navigateSection} />}
+      {showHeader && <AppHeader active={appSection(screen)} onNavigate={navigateSection} />}
       {storageError && (
         <div role="alert" className="flex min-h-11 items-center justify-between gap-4 bg-danger-weak px-4 text-danger sm:px-9">
           <span>{storageError}</span>
@@ -340,6 +343,7 @@ export function SparringApp() {
           session={session}
           onPractice={() => navigate("practice")}
           onManage={() => navigate("manage")}
+          onCreate={(tab) => void createRepertoire(tab)}
           onResume={() => {
             if (session) {
               setSelectedId(session.repertoireId);
@@ -360,6 +364,7 @@ export function SparringApp() {
           repertoire={repertoire}
           positionId={editorId}
           history={editorHistory}
+          initialTab={editorTab}
           onBack={() => navigate("manage")}
           onNameChange={updateName}
           onColorChange={updateColor}
@@ -407,7 +412,7 @@ export function SparringApp() {
       {showHeader && (
         <footer className="mono mt-auto flex min-h-[54px] items-center justify-between gap-4 px-4 text-[11px] text-ink-faint sm:px-9">
           <span>Out of Book</span>
-          <span>Local-only · <a href="/licenses" className="hover:text-ink">Open-source licenses</a></span>
+          <span><a href="/licenses" className="hover:text-ink">Open-source licenses</a></span>
         </footer>
       )}
     </main>

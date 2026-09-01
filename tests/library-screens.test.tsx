@@ -27,21 +27,25 @@ function repertoire(pgn = "1. e4 e5 2. Nf3 *"): Repertoire {
 
 describe("repertoire navigation screens", () => {
   it("shows the first-run hero instead of an empty dashboard when no repertoire exists yet", () => {
-    const onManage = vi.fn();
+    const onCreate = vi.fn();
     render(
       <HomeScreen
         repertoires={[]}
         reviewStates={[]}
         onPractice={vi.fn()}
-        onManage={onManage}
+        onManage={vi.fn()}
         onResume={vi.fn()}
         onEdit={vi.fn()}
+        onCreate={onCreate}
       />,
     );
 
-    expect(screen.getByText(/KNOW THE/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Import a PGN" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Import a PGN" }));
-    expect(onManage).toHaveBeenCalledOnce();
+    expect(onCreate).toHaveBeenCalledExactlyOnceWith("import");
+
+    fireEvent.click(screen.getByRole("button", { name: "Build on the board" }));
+    expect(onCreate).toHaveBeenLastCalledWith("moves");
   });
 
   it("puts starting a session and adding a repertoire at the center of the home dashboard", () => {
@@ -55,6 +59,7 @@ describe("repertoire navigation screens", () => {
         onManage={onManage}
         onResume={vi.fn()}
         onEdit={vi.fn()}
+        onCreate={vi.fn()}
       />,
     );
 

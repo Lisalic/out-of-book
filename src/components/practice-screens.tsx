@@ -13,11 +13,11 @@ import { figurineSan } from "@/lib/chess/notation";
 import type { DeviationFrequency, MoveLedgerEntry, Repertoire, TrainingSession } from "@/lib/chess/types";
 import type { EngineStatus } from "./use-training-engine";
 
-const FREQUENCIES: Array<{ value: DeviationFrequency; label: string; note: string; pct: string }> = [
-  { value: "never", label: "Never", note: "Pure recall drilling", pct: "0%" },
-  { value: "low", label: "Occasionally", note: "Recommended", pct: "10%" },
-  { value: "medium", label: "Sometimes", note: "Every fourth line leaves book", pct: "25%" },
-  { value: "high", label: "Often", note: "Sparring-heavy", pct: "50%" },
+const FREQUENCIES: Array<{ value: DeviationFrequency; label: string; pct: string }> = [
+  { value: "never", label: "Never", pct: "0%" },
+  { value: "low", label: "Occasionally", pct: "10%" },
+  { value: "medium", label: "Sometimes", pct: "25%" },
+  { value: "high", label: "Often", pct: "50%" },
 ];
 
 const STRENGTH_STOPS: Array<{ value: number; tier: string }> = [
@@ -114,11 +114,10 @@ export function PracticeSetup({
                 </button>
               ))}
             </div>
-            <p className="mono mt-4 text-[11px] leading-relaxed text-ink-faint">Approximate — depends on your device.</p>
           </div>
 
           <div>
-            <p className="label px-1 py-3">Chance this session leaves book</p>
+            <p className="label px-1 py-3">Leaves book</p>
             <div className="flex flex-col gap-0.5">
               {FREQUENCIES.map((option) => (
                 <button
@@ -129,10 +128,7 @@ export function PracticeSetup({
                     frequency === option.value ? "border-l-canvas bg-accent text-accent-ink" : "border-l-transparent bg-surface-sunken hover:bg-line"
                   }`}
                 >
-                  <span>
-                    <span className="block text-xl font-semibold tracking-tight">{option.label}</span>
-                    <span className="mono mt-0.5 block text-[11px] opacity-75">{option.note}</span>
-                  </span>
+                  <span className="block text-xl font-semibold tracking-tight">{option.label}</span>
                   <span className="mono text-xl font-bold">{option.pct}</span>
                 </button>
               ))}
@@ -209,9 +205,7 @@ function FigurineMoveList({ moves, viewIndex, onSelectPly }: { moves: MoveLedger
   return (
     <div className="min-h-56 flex-1 overflow-y-auto p-6.5">
       <p className="label">Moves</p>
-      {rows.length === 0 ? (
-        <p className="mt-9 text-center text-ink-muted">Make the first move on the board.</p>
-      ) : (
+      {rows.length > 0 && (
         <div className="mt-4 flex flex-col gap-0.5">
           {rows.map((row) => (
             <div key={row.number} className="grid grid-cols-[34px_1fr_1fr] items-center gap-2.5">
@@ -227,14 +221,11 @@ function FigurineMoveList({ moves, viewIndex, onSelectPly }: { moves: MoveLedger
 }
 
 /** The mockup's signature move: a full-width accent band that drops in for a state change. Quiet states get a plain status line instead. */
-function TakeoverBand({ tag, headline, detail, right }: { tag: string; headline: string; detail: string; right?: string }) {
+function TakeoverBand({ tag, right }: { tag: string; right?: string }) {
   return (
-    <div className="animate-band-drop grid grid-cols-[auto_1fr_auto] items-center gap-7 bg-accent p-6 text-accent-ink">
+    <div className="animate-band-drop grid grid-cols-[auto_1fr_auto] items-center gap-7 bg-accent p-4 text-accent-ink">
       <span className="mono bg-canvas px-3 py-2 text-xs font-bold tracking-[0.16em] text-accent">{tag}</span>
-      <div>
-        <p className="text-[28px] leading-[1.05] font-bold tracking-tight text-balance">{headline}</p>
-        <p className="mono mt-1.5 text-xs">{detail}</p>
-      </div>
+      <span />
       {right && <span className="mono justify-self-end text-xs font-bold whitespace-nowrap">{right}</span>}
     </div>
   );
@@ -306,8 +297,6 @@ export function TrainingScreen({
     onEnd: atEnd ? undefined : () => setViewIndex(positions.length - 1),
   });
 
-  const lastPly = session.moves.at(-1);
-
   return (
     <section className="min-h-screen bg-canvas">
       <header className="grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-6 px-4 sm:px-9">
@@ -324,26 +313,14 @@ export function TrainingScreen({
       </header>
 
       {session.phase === "off_repertoire" ? (
-        <TakeoverBand
-          tag="Off book"
-          headline={`That move isn't in your book.`}
-          detail="Recall scoring stopped"
-          right="Your move ▸"
-        />
+        <TakeoverBand tag="Off book" right="Your move ▸" />
       ) : lineDone ? (
         <TakeoverBand
-          tag={session.lineCompletionReason === "checkmate" ? "Checkmate" : "Line complete"}
-          headline={session.lineCompletionReason === "book_complete" ? "End of line." : session.message ?? "Game complete."}
-          detail={session.lineCompletionReason === "checkmate" ? "Game result" : engineStatus === "evaluating" ? "Evaluating…" : "Scored below"}
+          tag={session.lineCompletionReason === "book_complete" ? "Line complete" : (session.message ?? "Game complete")}
           right={currentLine < lineCount ? "Next line ▸" : "Review ▸"}
         />
       ) : session.takeoverReason ? (
-        <TakeoverBand
-          tag="Out of book"
-          headline="Opponent left the book."
-          detail={`Engine ≈${session.strength} · no move limit`}
-          right={isPlayersTurn ? "Your move ▸" : "Opponent to move"}
-        />
+        <TakeoverBand tag="Out of book" right={isPlayersTurn ? "Your move ▸" : "Opponent to move"} />
       ) : (
         <div className="flex h-11 items-center gap-2 px-4 sm:px-9">
           <span className={`h-2 w-2 flex-none bg-accent ${engineStatus === "thinking" ? "animate-pulse" : ""}`} aria-hidden="true" />
@@ -354,7 +331,7 @@ export function TrainingScreen({
       )}
 
       <div className="mx-auto grid w-[min(1220px,calc(100%-36px))] grid-cols-1 gap-0.5 py-6 lg:grid-cols-[1fr_400px] lg:items-start">
-        <div className="flex gap-0.5">
+        <div className="mx-auto flex w-full max-w-[600px] gap-0.5">
           <EvalBar cp={lineDone ? session.lineEvaluationCp : undefined} evaluating={engineStatus === "evaluating"} />
           <div className="min-w-0 flex-1">
             <Chessboard
@@ -379,7 +356,6 @@ export function TrainingScreen({
                   <span key={edge.id} className="mono bg-line px-4.5 py-3 text-base font-bold">{figurineSan(edge.san)}</span>
                 )) : <span className="mono text-ink-faint">No saved answer</span>}
               </div>
-              <p className="mono mt-3.5 text-[11px] leading-relaxed text-ink-muted">{lastPly?.san ? `${figurineSan(lastPly.san)} isn't a saved line.` : "Not a saved line."}</p>
             </div>
           )}
 

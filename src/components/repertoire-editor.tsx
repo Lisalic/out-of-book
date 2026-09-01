@@ -25,6 +25,7 @@ interface RepertoireEditorProps {
   onRemoveMove: (edgeId: string) => void;
   onSetMainline: (edgeId: string) => void;
   onImport: (graph: PositionGraph, restoreDeletedIds: Set<string>) => void;
+  initialTab?: "moves" | "import";
 }
 
 function downloadPgn(repertoire: Repertoire) {
@@ -70,8 +71,9 @@ export function RepertoireEditor({
   onRemoveMove,
   onSetMainline,
   onImport,
+  initialTab,
 }: RepertoireEditorProps) {
-  const [tab, setTab] = useState<"moves" | "import">("moves");
+  const [tab, setTab] = useState<"moves" | "import">(initialTab ?? "moves");
   const [pgn, setPgn] = useState("");
   const [preview, setPreview] = useState<ImportPreview>();
   const [restoreDeleted, setRestoreDeleted] = useState(false);
@@ -121,7 +123,7 @@ export function RepertoireEditor({
       <header className="grid h-16 grid-cols-[160px_1fr_160px] items-center gap-5 px-4 sm:px-9">
         <button type="button" className="mono justify-self-start text-xs text-ink-muted hover:text-ink" onClick={onBack}>← Repertoires</button>
         <NameField key={`${repertoire.id}:${repertoire.name}`} initial={repertoire.name} onSave={onNameChange} />
-        <span className="mono justify-self-end text-[11px] text-ink-faint">Saved automatically</span>
+        <span />
       </header>
       <div className="mx-auto grid w-[min(1220px,calc(100%-36px))] grid-cols-1 gap-0.5 py-6 lg:grid-cols-[1fr_420px] lg:items-start">
         <div className="mx-auto w-full max-w-[600px]">
@@ -130,7 +132,6 @@ export function RepertoireEditor({
               <p className="eyebrow">Editing · ply {history.length.toString().padStart(2, "0")}</p>
               <h1 className="mt-2 text-4xl font-bold tracking-tighter capitalize">{fenTurn(position.fen)} to move</h1>
             </div>
-            <p className="mono max-w-[26ch] text-right text-xs leading-relaxed text-ink-muted">Move a piece to add a line.</p>
           </div>
           <div className="flex gap-0.5">
             <EvalBar cp={evaluation.cp} evaluating={evaluation.status === "evaluating"} />
@@ -226,7 +227,7 @@ export function RepertoireEditor({
                   {preview.restoredMoveCount > 0 && (
                     <label className="mono flex items-center gap-2 text-xs">
                       <input type="checkbox" checked={restoreDeleted} onChange={(event) => setRestoreDeleted(event.target.checked)} />
-                      Restore {preview.restoredMoveCount} previously deleted move{preview.restoredMoveCount === 1 ? "" : "s"} found in this PGN
+                      Restore {preview.restoredMoveCount} deleted move{preview.restoredMoveCount === 1 ? "" : "s"}
                     </label>
                   )}
                   <button type="button" className="btn mt-1.5 bg-canvas text-accent" onClick={commitImport}>Add to repertoire</button>

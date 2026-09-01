@@ -18,7 +18,7 @@ const mono = Space_Mono({
 
 export const metadata: Metadata = {
   title: "Out of Book — Repertoire Sparring",
-  description: "Know the line, then prove you can play the position when your opponent leaves it.",
+  description: "Chess repertoire trainer.",
 };
 
 export const viewport: Viewport = {

@@ -21,12 +21,8 @@ describe("SparringApp", () => {
   it("shows a freshly created repertoire in the editor immediately — regression test for a state/storage desync", async () => {
     render(<SparringApp />);
 
-    // First-run hero, since there are no repertoires yet.
+    // First-run hero, since there are no repertoires yet — this now opens the editor directly.
     fireEvent.click(await screen.findByRole("button", { name: "Build on the board" }));
-
-    // Empty repertoire manager — two "New book" buttons exist (header action + empty panel).
-    const newBookButtons = await screen.findAllByRole("button", { name: "New book" });
-    fireEvent.click(newBookButtons[0]);
 
     // The freshly created repertoire must appear in the editor without a reload — this
     // previously failed because persistRepertoire used Array.map to update the in-memory
@@ -34,6 +30,5 @@ describe("SparringApp", () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue("Untitled repertoire")).toBeVisible();
     });
-    expect(screen.getByText("Saved automatically")).toBeVisible();
   });
 });

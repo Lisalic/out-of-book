@@ -1,18 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { decisionPositions, dueCount, lineCount } from "@/lib/chess/scheduling";
+import { Chessboard } from "./chessboard";
+import { decisionPositions, dueLineCount, repertoireLines } from "@/lib/chess/scheduling";
 import type { Repertoire, ReviewState, TrainingSession } from "@/lib/chess/types";
 
 function repertoireStats(repertoire: Repertoire, states: ReviewState[]) {
   const decisions = decisionPositions(repertoire.graph, repertoire.traineeColor);
+  const lines = repertoireLines(repertoire.graph, repertoire.traineeColor);
   const repStates = states.filter((state) => state.repertoireId === repertoire.id);
   const reviewed = repStates.filter((state) => decisions.includes(state.positionKey)).length;
   return {
     decisions: decisions.length,
-    lines: lineCount(repertoire.graph),
+    lines: lines.length,
     coverage: decisions.length ? Math.round((reviewed / decisions.length) * 100) : 0,
-    due: dueCount(decisions, new Map(repStates.map((state) => [state.positionKey, state]))),
+    due: dueLineCount(lines, new Map(repStates.map((state) => [state.positionKey, state]))),
   };
 }
 
@@ -65,7 +67,7 @@ function EmptyPanel({ icon, title, detail, action }: { icon: string; title: stri
     <div className="panel grid min-h-72 place-items-center gap-3 p-8 text-center">
       <span className="text-4xl text-ink-dim" aria-hidden="true">{icon}</span>
       <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
-      <p className="max-w-sm text-ink-muted">{detail}</p>
+      {detail && <p className="max-w-sm text-ink-muted">{detail}</p>}
       {action}
     </div>
   );
@@ -84,35 +86,27 @@ function PageHeading({ kicker, title, detail, action }: { kicker?: string; title
   );
 }
 
+/** A quiet, non-interactive book position — the first-run hero's only image. Ruy Lopez after 3. Bb5. */
+const HERO_FEN = "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3";
+
 /** Shown in place of a bare empty state on the very first visit — no repertoires exist yet anywhere. */
-function FirstRunHero({ onImport, onTryDrill }: { onImport: () => void; onTryDrill: () => void }) {
+function FirstRunHero({ onImport, onBuild }: { onImport: () => void; onBuild: () => void }) {
   return (
-    <div>
-      <p className="eyebrow">Repertoire sparring</p>
-      <h1 className="mt-5 text-[15vw] leading-[0.86] font-bold tracking-tighter sm:text-[92px]">
-        KNOW THE
-        <br />
-        LINE. THEN
-        <br />
-        <span className="bg-accent px-3 text-accent-ink">PLAY ON.</span>
-      </h1>
-      <div className="mt-8 flex flex-wrap gap-0.5">
-        <button type="button" className="btn btn-primary px-8 py-5 text-sm" onClick={onImport}>Import a PGN</button>
-        <button type="button" className="btn px-8 py-5 text-sm" onClick={onTryDrill}>Build on the board</button>
+    <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1fr_minmax(0,400px)] lg:gap-16">
+      <div>
+        <h1 className="text-[44px] leading-[0.95] font-bold tracking-tighter text-balance sm:text-[64px]">
+          Start a repertoire.
+        </h1>
+        <p className="mt-5 max-w-[32ch] text-lg leading-relaxed text-ink-muted text-pretty">
+          Import a PGN, or build one move by move.
+        </p>
+        <div className="mt-9 flex flex-wrap gap-0.5">
+          <button type="button" className="btn btn-primary px-8 py-5 text-sm" onClick={onImport}>Import a PGN</button>
+          <button type="button" className="btn px-8 py-5 text-sm" onClick={onBuild}>Build on the board</button>
+        </div>
       </div>
-      <div className="mt-13 grid grid-cols-1 gap-0.5 sm:grid-cols-3">
-        <div className="panel p-6">
-          <p className="text-5xl font-bold tracking-tighter">0</p>
-          <p className="mono mt-3 text-[11px] leading-relaxed text-ink-muted">server calls</p>
-        </div>
-        <div className="panel p-6">
-          <p className="text-5xl font-bold tracking-tighter text-accent">2</p>
-          <p className="mono mt-3 text-[11px] leading-relaxed text-ink-muted">separate scores</p>
-        </div>
-        <div className="panel p-6">
-          <p className="text-5xl font-bold tracking-tighter">∞</p>
-          <p className="mono mt-3 text-[11px] leading-relaxed text-ink-muted">sparring plies</p>
-        </div>
+      <div className="w-full max-w-[400px] justify-self-center lg:justify-self-end" aria-hidden="true">
+        <Chessboard fen={HERO_FEN} interactive={false} />
       </div>
     </div>
   );
@@ -126,9 +120,10 @@ interface HomeScreenProps {
   onManage: () => void;
   onResume: () => void;
   onEdit: (id: string) => void;
+  onCreate: (tab: "moves" | "import") => void;
 }
 
-export function HomeScreen({ repertoires, reviewStates, session, onPractice, onManage, onResume, onEdit }: HomeScreenProps) {
+export function HomeScreen({ repertoires, reviewStates, session, onPractice, onManage, onResume, onEdit, onCreate }: HomeScreenProps) {
   const activeRepertoire = session && repertoires.find((item) => item.id === session.repertoireId);
   // Due-date math only needs day-granularity freshness; a "now" fixed at mount avoids
   // calling Date.now() during render while staying accurate for the life of this screen.
@@ -147,8 +142,8 @@ export function HomeScreen({ repertoires, reviewStates, session, onPractice, onM
 
   if (repertoires.length === 0) {
     return (
-      <section className="mx-auto w-[min(1180px,calc(100%-56px))] flex-1 py-16">
-        <FirstRunHero onImport={onManage} onTryDrill={onManage} />
+      <section className="mx-auto flex w-[min(1180px,calc(100%-56px))] flex-1 items-center py-16">
+        <FirstRunHero onImport={() => onCreate("import")} onBuild={() => onCreate("moves")} />
       </section>
     );
   }
@@ -161,7 +156,7 @@ export function HomeScreen({ repertoires, reviewStates, session, onPractice, onM
           <div className="mt-2 flex items-baseline gap-5">
             <span className="text-[88px] leading-[0.85] font-bold tracking-tighter">{totalDue}</span>
             <span className="text-2xl leading-tight font-semibold">
-              position{totalDue === 1 ? "" : "s"} due
+              line{totalDue === 1 ? "" : "s"} due
               <br />
               across {repertoires.length} repertoire{repertoires.length === 1 ? "" : "s"}
             </span>
@@ -210,19 +205,14 @@ export function HomeScreen({ repertoires, reviewStates, session, onPractice, onM
           )}
           <div className="panel flex-1 p-6.5">
             <p className="label">Recall · all time</p>
-            {cleanRecallPercent === null ? (
-              <p className="mt-4 max-w-[24ch] text-ink-muted">Practise a few positions first.</p>
-            ) : (
-              <>
-                <p className="mt-3 text-[56px] leading-[0.88] font-bold tracking-tighter">
+            <p className="mt-3 text-[56px] leading-[0.88] font-bold tracking-tighter">
+              {cleanRecallPercent === null ? "—" : (
+                <>
                   {cleanRecallPercent}
                   <span className="text-3xl">%</span>
-                </p>
-                <p className="mono mt-5 text-[11px] leading-relaxed text-ink-faint">
-                  Positions recalled clean, no correction, across every review.
-                </p>
-              </>
-            )}
+                </>
+              )}
+            </p>
           </div>
         </div>
       </div>
@@ -246,7 +236,7 @@ export function PracticeLibrary({ repertoires, reviewStates, onPractice, onEdit,
         <EmptyPanel
           icon="♟"
           title="No repertoires yet"
-          detail="Create a repertoire and add a line before practicing."
+          detail=""
           action={<button type="button" className="btn btn-primary" onClick={onManage}>Create repertoire</button>}
         />
       ) : (
@@ -297,7 +287,7 @@ export function RepertoireManager({ repertoires, reviewStates, onCreate, onEdit,
         <EmptyPanel
           icon="＋"
           title="Create your first repertoire"
-          detail="Move pieces on the board, or paste a PGN."
+          detail=""
           action={<button type="button" className="btn btn-primary" onClick={onCreate}>New book</button>}
         />
       ) : (

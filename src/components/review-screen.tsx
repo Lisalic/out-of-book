@@ -51,7 +51,7 @@ export function ReviewScreen({ session, reviewStates, onDone, onAgain }: ReviewS
 
       <div className="mt-9 grid grid-cols-1 gap-0.5 lg:grid-cols-2">
         <div className="bg-accent p-7.5 text-accent-ink">
-          <p className="mono text-xs font-bold tracking-[0.16em] uppercase">Axis 1 · repertoire recall</p>
+          <p className="mono text-xs font-bold tracking-[0.16em] uppercase">Recall</p>
           <p className="mt-3 text-8xl leading-[0.85] font-bold tracking-tighter">
             {recallRate}<span className="text-4xl">%</span>
           </p>
@@ -63,18 +63,17 @@ export function ReviewScreen({ session, reviewStates, onDone, onAgain }: ReviewS
           <p className="mono mt-4.5 text-xs leading-relaxed">{firstTry} first try · {retries} corrected · {revealed} revealed</p>
         </div>
         <div className="panel p-7.5">
-          <p className="label">Axis 2 · chess quality after takeover</p>
+          <p className="label">Evaluation</p>
           <p className="mt-3 text-8xl leading-[0.85] font-bold tracking-tighter">{meanEval === null ? "—" : formatEvaluation(meanEval)}</p>
           <div className="mt-5.5 flex h-13 items-end gap-0.5">
             {evaluated.length === 0 ? (
-              <p className="self-center text-ink-faint">No sparring lines to score yet.</p>
+              <p className="self-center text-ink-faint">—</p>
             ) : evaluated.map((line, index) => {
               const cp = line.evaluationCp ?? 0;
               const height = Math.max(8, Math.min(100, 50 + cp / 16));
               return <i key={index} className={`flex-1 ${cp >= 0 ? "bg-accent" : "bg-ink-dim"}`} style={{ height: `${height}%` }} />;
             })}
           </div>
-          <p className="mono mt-4.5 text-xs leading-relaxed text-ink-muted">Mean evaluation across sparring lines.</p>
         </div>
       </div>
 

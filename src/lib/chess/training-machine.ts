@@ -116,7 +116,6 @@ function completeAtBookEnd(session: TrainingSession, graph: PositionGraph, now =
     ...session,
     phase: "complete",
     lineCompletionReason: "book_complete",
-    message: "Saved line complete.",
     updatedAt: nowIso(now),
   };
 }
@@ -139,7 +138,6 @@ export function submitTraineeMove(
       phase: "off_repertoire",
       pendingMove: move,
       retryCount: session.retryCount + 1,
-      message: "That move is legal, but it is not in your repertoire.",
       updatedAt: nowIso(now),
     };
   }
@@ -168,7 +166,6 @@ export function retryRepertoireMove(session: TrainingSession, now = Date.now()):
     ...session,
     phase: "trainee_turn",
     pendingMove: undefined,
-    message: "Try another repertoire move.",
     turnStartedAt: nowIso(now),
     updatedAt: nowIso(now),
   };
@@ -242,7 +239,6 @@ export function beginEngineTakeover(
     takeoverReason: "deviation",
     actualDeviationPly: session.moves.length,
     phase: fenTurn(session.fen) === session.traineeColor ? "continuation" : "opponent_engine_turn",
-    message: "The opponent left your repertoire. Play the position.",
     updatedAt: nowIso(now),
   };
 }

@@ -115,6 +115,15 @@
   .label { font-family: var(--font-mono); font-size: .68rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--color-ink-faint); }
   .mono { font-family: var(--font-mono); }
 
+  .opening-picker-chevron { transition: transform .15s ease; }
+  .opening-picker-chevron.is-open { transform: rotate(180deg); }
+  .opening-picker-results { scrollbar-color: var(--color-ink-dim) var(--color-surface); scrollbar-width: thin; }
+  .opening-picker-results:hover { scrollbar-color: var(--color-ink-muted) var(--color-surface); }
+  .opening-picker-results::-webkit-scrollbar { width: 8px; }
+  .opening-picker-results::-webkit-scrollbar-track { background: var(--color-surface); }
+  .opening-picker-results::-webkit-scrollbar-thumb { background: var(--color-ink-dim); }
+  .opening-picker-results::-webkit-scrollbar-thumb:hover { background: var(--color-ink-muted); }
+
   .ply {
     border: 0; padding: .35rem .55rem;
     background: var(--color-line); color: var(--color-ink); font-family: var(--font-mono); font-weight: 700; cursor: pointer;

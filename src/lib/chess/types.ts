@@ -32,6 +32,7 @@ export interface Repertoire {
   id: string;
   name: string;
   traineeColor: TraineeColor;
+  sourcePresetId?: string;
   graph: PositionGraph;
   createdAt: string;
   updatedAt: string;

@@ -33,7 +33,7 @@ interface PracticeSetupProps {
   strength: number;
   frequency: DeviationFrequency;
   sessionSize: number | "all";
-  decisionCount: number;
+  lineCount: number;
   dueCount: number;
   onBack: () => void;
   onStrengthChange: (strength: number) => void;
@@ -47,7 +47,7 @@ export function PracticeSetup({
   strength,
   frequency,
   sessionSize,
-  decisionCount,
+  lineCount,
   dueCount,
   onBack,
   onStrengthChange,
@@ -56,12 +56,12 @@ export function PracticeSetup({
   onStart,
 }: PracticeSetupProps) {
   const facts: Array<[string, string]> = [
-    ["Due today", String(dueCount)],
-    ["Decisions in book", String(decisionCount)],
+    ["Lines due today", String(dueCount)],
+    ["Lines in book", String(lineCount)],
     ["Playing as", repertoire.traineeColor],
   ];
   const nearestStop = STRENGTH_STOPS.reduce((best, stop) => (Math.abs(stop.value - strength) < Math.abs(best.value - strength) ? stop : best));
-  const sessionSizeMax = Math.max(decisionCount, 1);
+  const sessionSizeMax = Math.max(lineCount, 1);
 
   return (
     <section className="mx-auto w-[min(1180px,calc(100%-56px))] flex-1">
@@ -141,7 +141,7 @@ export function PracticeSetup({
 
           <div className="panel p-6.5">
             <div className="flex items-baseline justify-between">
-              <p className="label">Positions this session</p>
+              <p className="label">Lines this session</p>
               <p className="mono text-xs text-accent">{sessionSize === "all" ? "All due" : sessionSize}</p>
             </div>
             <input
@@ -155,7 +155,7 @@ export function PracticeSetup({
                 onSessionSizeChange(value >= sessionSizeMax ? "all" : value);
               }}
               className="mt-5 w-full accent-accent"
-              aria-label="Positions this session"
+              aria-label="Lines this session"
             />
             <div className="mt-2 flex justify-between">
               <span className="mono text-[10px] text-ink-faint">0</span>
@@ -167,7 +167,7 @@ export function PracticeSetup({
             type="button"
             className="btn btn-primary py-7.5 text-base tracking-wider"
             onClick={onStart}
-            disabled={decisionCount === 0}
+            disabled={lineCount === 0}
           >
             Start session →
           </button>

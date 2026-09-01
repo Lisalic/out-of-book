@@ -91,13 +91,13 @@ describe("training state machine", () => {
     expect(moved.takeoverReason).toBe("deviation");
   });
 
-  it("records which position each completed line was testing, and resets the board for the next drill line", () => {
+  it("records which decisions each completed line was testing, and resets the board for the next drill line", () => {
     const graph = importPgn("1. e4 e5 *", "white").graph;
     const root = graph.positions[graph.roots[0]];
     const drill = {
       lines: [
-        { id: "one", targetPositionKey: root.id, edgeUcis: ["e2e4", "e7e5"] },
-        { id: "two", targetPositionKey: root.id, edgeUcis: ["d2d4", "d7d5"] },
+        { id: "one", decisionKeys: [root.id], edgeUcis: ["e2e4", "e7e5"] },
+        { id: "two", decisionKeys: [root.id], edgeUcis: ["d2d4", "d7d5"] },
       ],
       currentLineIndex: 0,
       completedLines: [],
@@ -107,7 +107,7 @@ describe("training state machine", () => {
     const complete = { ...session, phase: "complete" as const, lineCompletionReason: "book_complete" as const, lineEvaluationCp: 18 };
     const next = advanceDrillLine(complete, root.fen, null, 3_000);
     expect(next.drill?.currentLineIndex).toBe(1);
-    expect(next.drill?.completedLines[0]).toMatchObject({ evaluationCp: 18, targetPositionKey: root.id });
+    expect(next.drill?.completedLines[0]).toMatchObject({ evaluationCp: 18, decisionKeys: [root.id] });
     expect(next.moves).toHaveLength(0);
     expect(next.fen).toBe(root.fen);
   });

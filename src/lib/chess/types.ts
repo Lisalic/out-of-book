@@ -77,14 +77,14 @@ export type LineCompletionReason = "book_complete" | "user_ended" | "checkmate" 
 
 export interface DrillLinePlan {
   id: string;
-  /** The decision position this line was selected to test. */
-  targetPositionKey: string;
+  /** Every trainee decision along this line's route, root to leaf, in the order they're reached — each is graded independently once the line is played. */
+  decisionKeys: string[];
   edgeUcis: string[];
 }
 
 export interface DrillLineResult {
   lineIndex: number;
-  targetPositionKey: string;
+  decisionKeys: string[];
   completionReason: LineCompletionReason;
   leftBook: boolean;
   finalFen: string;

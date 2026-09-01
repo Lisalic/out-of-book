@@ -3,9 +3,9 @@ import { fenTurn } from "./position-key";
 import type { DrillLinePlan, PositionGraph, TraineeColor } from "./types";
 
 /**
- * Picks a ply at which the opponent may leave the repertoire, constrained to
- * plies at or after the line's tested decision position — a deviation can
- * never pre-empt the position the session actually means to drill.
+ * Picks a ply at which the opponent may leave the repertoire, constrained to plies at
+ * or after the last of the line's decision positions — a deviation can never pre-empt
+ * a decision the session actually means to drill.
  */
 export function planLineDeviation(
   graph: PositionGraph,
@@ -16,13 +16,14 @@ export function planLineDeviation(
 ): number | null {
   if (random() >= chance) return null;
   let positionId = graph.roots[0];
-  let pastTarget = false;
+  const remainingDecisions = new Set(line.decisionKeys);
+  let pastAllDecisions = remainingDecisions.size === 0;
   const candidates: number[] = [];
 
   line.edgeUcis.forEach((uci, ply) => {
     const position = graph.positions[positionId];
-    if (position?.id === line.targetPositionKey) pastTarget = true;
-    if (position && pastTarget && fenTurn(position.fen) !== traineeColor) candidates.push(ply);
+    if (position && remainingDecisions.delete(position.id) && remainingDecisions.size === 0) pastAllDecisions = true;
+    if (position && pastAllDecisions && fenTurn(position.fen) !== traineeColor) candidates.push(ply);
     const edge = activeEdges(graph, positionId).find((item) => item.uci === uci);
     if (edge) positionId = edge.to;
   });

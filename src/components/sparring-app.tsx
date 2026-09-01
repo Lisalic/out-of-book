@@ -20,15 +20,13 @@ import { planLineDeviation } from "@/lib/chess/drill";
 import { seededRandom } from "@/lib/chess/deviation";
 import { START_FEN } from "@/lib/chess/rules";
 import {
-  buildRouteIndex,
-  buildSessionLines,
-  decisionPositions,
-  dueCount,
+  dueLineCount,
   grade,
   gradeForAttemptResult,
   initialReviewState,
+  repertoireLines,
   reviewStateId,
-  selectSession,
+  selectLineSession,
 } from "@/lib/chess/scheduling";
 import {
   advanceDrillLine,
@@ -94,8 +92,8 @@ export function SparringApp() {
   const repertoire = useMemo(() => repertoires.find((item) => item.id === selectedId), [repertoires, selectedId]);
   const trainingEngine = useTrainingEngine(screen === "train", session, repertoire, setSession);
 
-  const decisions = useMemo(
-    () => (repertoire ? decisionPositions(repertoire.graph, repertoire.traineeColor) : []),
+  const lines = useMemo(
+    () => (repertoire ? repertoireLines(repertoire.graph, repertoire.traineeColor) : []),
     [repertoire],
   );
   const repertoireReviewStates = useMemo(
@@ -104,8 +102,8 @@ export function SparringApp() {
   );
   const setupDueCount = useMemo(() => {
     const map = new Map(repertoireReviewStates.map((state) => [state.positionKey, state]));
-    return dueCount(decisions, map);
-  }, [decisions, repertoireReviewStates]);
+    return dueLineCount(lines, map);
+  }, [lines, repertoireReviewStates]);
 
   useEffect(() => {
     Promise.all([listRepertoires(), getLatestActiveSession(), listAllReviewStates()])
@@ -258,14 +256,12 @@ export function SparringApp() {
   }
 
   function startTraining() {
-    if (!repertoire || !decisions.length) return;
+    if (!repertoire || !lines.length) return;
     const statesMap = new Map(repertoireReviewStates.map((state) => [state.positionKey, state]));
-    const targetKeys = selectSession(decisions, statesMap, sessionSize);
-    const routeIndex = buildRouteIndex(repertoire.graph);
-    const lines = buildSessionLines(repertoire.graph, targetKeys, routeIndex);
-    if (!lines.length) return;
+    const selectedLines = selectLineSession(lines, statesMap, sessionSize);
+    if (!selectedLines.length) return;
     const chance = deviationChance(frequency);
-    const plannedDeviationPly = planLineDeviation(repertoire.graph, lines[0], repertoire.traineeColor, chance, seededRandom(Date.now()));
+    const plannedDeviationPly = planLineDeviation(repertoire.graph, selectedLines[0], repertoire.traineeColor, chance, seededRandom(Date.now()));
     const rootFen = repertoire.graph.positions[repertoire.graph.roots[0]].fen;
     setSession(createTrainingSession({
       repertoireId: repertoire.id,
@@ -274,22 +270,28 @@ export function SparringApp() {
       strength,
       deviationFrequency: frequency,
       plannedDeviationPly,
-      drill: { lines, currentLineIndex: 0, completedLines: [], deviationChance: chance },
+      drill: { lines: selectedLines, currentLineIndex: 0, completedLines: [], deviationChance: chance },
     }));
     setScreen("train");
   }
 
-  /** Grades the position the just-finished line was testing and persists the new schedule. */
+  /** Grades every decision the just-finished line tested and persists each one's new schedule. */
   function gradeCompletedLine(finished: TrainingSession, repertoireId: string) {
     const line = finished.drill?.lines[finished.drill.currentLineIndex];
     if (!line) return;
-    const attempt = finished.attempts.find((item) => item.positionKey === line.targetPositionKey);
-    if (!attempt) return;
-    const key = reviewStateId(repertoireId, line.targetPositionKey);
-    const prior = reviewStates.find((state) => state.id === key) ?? initialReviewState(repertoireId, line.targetPositionKey);
-    const next = grade(prior, gradeForAttemptResult(attempt.result));
-    setReviewStates((states) => [...states.filter((state) => state.id !== key), next]);
-    void saveReviewState(next);
+    const updates = line.decisionKeys
+      .map((positionKey) => {
+        const attempt = finished.attempts.find((item) => item.positionKey === positionKey);
+        if (!attempt) return undefined;
+        const key = reviewStateId(repertoireId, positionKey);
+        const prior = reviewStates.find((state) => state.id === key) ?? initialReviewState(repertoireId, positionKey);
+        return grade(prior, gradeForAttemptResult(attempt.result));
+      })
+      .filter((state): state is ReviewState => state !== undefined);
+    if (!updates.length) return;
+    const updatedIds = new Set(updates.map((state) => state.id));
+    setReviewStates((states) => [...states.filter((state) => !updatedIds.has(state.id)), ...updates]);
+    updates.forEach((next) => void saveReviewState(next));
   }
 
   function nextLine() {
@@ -374,7 +376,7 @@ export function SparringApp() {
           strength={strength}
           frequency={frequency}
           sessionSize={sessionSize}
-          decisionCount={decisions.length}
+          lineCount={lines.length}
           dueCount={setupDueCount}
           onBack={() => navigate("practice")}
           onStrengthChange={setStrength}

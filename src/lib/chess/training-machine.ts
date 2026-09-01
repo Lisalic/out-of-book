@@ -281,7 +281,7 @@ function recordCurrentLine(session: TrainingSession): TrainingSession {
         ...session.drill.completedLines,
         {
           lineIndex: index,
-          targetPositionKey: line?.targetPositionKey ?? session.positionKey,
+          decisionKeys: line?.decisionKeys ?? [session.positionKey],
           completionReason: session.lineCompletionReason ?? "book_complete",
           leftBook: session.takeoverReason !== null,
           finalFen: session.fen,

@@ -2,130 +2,144 @@ import { activeEdges } from "./graph";
 import { fenTurn } from "./position-key";
 import type { DrillLinePlan, PositionGraph, ReviewGrade, ReviewState, TraineeColor } from "./types";
 
-/**
- * Shortest edge-UCI route from the repertoire root to every reachable position,
- * one breadth-first walk over the graph. O(positions + edges) — this is the
- * replacement for the old exhaustive root-to-leaf enumeration, which was
- * exponential in branching factor and froze the UI on any wide repertoire.
- */
-export function buildRouteIndex(graph: PositionGraph): Map<string, string[]> {
-  const index = new Map<string, string[]>();
-  const root = graph.roots[0];
-  if (!root || !graph.positions[root]) return index;
-  index.set(root, []);
-  const queue: string[] = [root];
-  while (queue.length) {
-    const current = queue.shift()!;
-    const route = index.get(current)!;
-    for (const edge of activeEdges(graph, current)) {
-      if (index.has(edge.to)) continue;
-      index.set(edge.to, [...route, edge.uci]);
-      queue.push(edge.to);
-    }
-  }
-  return index;
+function isDecisionPosition(graph: PositionGraph, id: string, traineeColor: TraineeColor): boolean {
+  const position = graph.positions[id];
+  if (!position || fenTurn(position.fen) !== traineeColor) return false;
+  return activeEdges(graph, id).some((edge) => edge.isAccepted);
 }
 
 /**
- * Positions reachable from the root where it is the trainee's move and at
- * least one accepted move is saved — the atomic unit of training. Linear in
- * the size of the graph, unlike enumerating full lines.
+ * Positions reachable from the root where it is the trainee's move and at least one
+ * accepted move is saved — the individual branch points that make up a line. This is
+ * the unit spaced-repetition scheduling grades independently (see `ReviewState`); it is
+ * not the unit a player thinks in, which is a whole line (`repertoireLines`) — a single
+ * line commonly strings several of these decisions together. One linear pass over the
+ * graph, unlike enumerating full lines.
  */
 export function decisionPositions(graph: PositionGraph, traineeColor: TraineeColor): string[] {
-  const routeIndex = buildRouteIndex(graph);
+  const root = graph.roots[0];
+  if (!root || !graph.positions[root]) return [];
+  const visited = new Set([root]);
+  const queue = [root];
   const result: string[] = [];
-  for (const id of routeIndex.keys()) {
-    const position = graph.positions[id];
-    if (!position || fenTurn(position.fen) !== traineeColor) continue;
-    if (activeEdges(graph, id).some((edge) => edge.isAccepted)) result.push(id);
+  while (queue.length) {
+    const current = queue.shift()!;
+    if (isDecisionPosition(graph, current, traineeColor)) result.push(current);
+    for (const edge of activeEdges(graph, current)) {
+      if (visited.has(edge.to)) continue;
+      visited.add(edge.to);
+      queue.push(edge.to);
+    }
   }
   return result;
 }
 
-/** Walks the mainline (or first saved move) forward from a position to a leaf. */
-function extendToLeaf(graph: PositionGraph, startId: string): string[] {
-  const ucis: string[] = [];
-  const visited = new Set([startId]);
-  let current = startId;
-  while (true) {
-    const [edge] = activeEdges(graph, current);
-    if (!edge || visited.has(edge.to)) break;
-    ucis.push(edge.uci);
-    visited.add(edge.to);
-    current = edge.to;
-  }
-  return ucis;
-}
-
 /**
- * One playable line per requested decision position: the route to it, then
- * its saved continuation to a leaf. Cost is O(route length + tail length)
- * per line, never a scan of every branch in the repertoire.
+ * Every distinct root-to-leaf variation in the repertoire that carries at least one
+ * trainee decision — the "lines" a player actually recognizes, as opposed to the
+ * individual branch points (`decisionPositions`) that make them up. A single line
+ * commonly strings several decisions together, and an earlier decision can belong to
+ * more than one line if the repertoire branches again further on. One breadth-first
+ * pass over the graph — O(positions + edges), never a walk of every branch (which would
+ * be exponential in branching factor).
  */
-export function buildSessionLines(
-  graph: PositionGraph,
-  targetKeys: string[],
-  routeIndex: Map<string, string[]>,
-): DrillLinePlan[] {
+export function repertoireLines(graph: PositionGraph, traineeColor: TraineeColor): DrillLinePlan[] {
+  const root = graph.roots[0];
+  if (!root || !graph.positions[root]) return [];
+  const edgeUcis = new Map<string, string[]>([[root, []]]);
+  const idPath = new Map<string, string[]>([[root, [root]]]);
+  const queue = [root];
+  while (queue.length) {
+    const current = queue.shift()!;
+    const ucis = edgeUcis.get(current)!;
+    const path = idPath.get(current)!;
+    for (const edge of activeEdges(graph, current)) {
+      if (edgeUcis.has(edge.to)) continue;
+      edgeUcis.set(edge.to, [...ucis, edge.uci]);
+      idPath.set(edge.to, [...path, edge.to]);
+      queue.push(edge.to);
+    }
+  }
+
   const lines: DrillLinePlan[] = [];
-  targetKeys.forEach((key, index) => {
-    const route = routeIndex.get(key);
-    if (!route) return;
-    lines.push({
-      id: `line-${index + 1}`,
-      targetPositionKey: key,
-      edgeUcis: [...route, ...extendToLeaf(graph, key)],
-    });
-  });
+  for (const [leafId, path] of idPath) {
+    if (path.length < 2 || activeEdges(graph, leafId).length > 0) continue;
+    const decisionKeys = path.filter((id) => isDecisionPosition(graph, id, traineeColor));
+    if (!decisionKeys.length) continue;
+    lines.push({ id: leafId, edgeUcis: edgeUcis.get(leafId)!, decisionKeys });
+  }
   return lines;
 }
 
-/**
- * Chooses which decision positions make up a session: overdue first (oldest
- * due date first), then positions never reviewed, then — only to pad a
- * fixed-size session — the weakest known positions. Pass size "all" to take
- * every due-or-new position with no padding.
- */
 function isDue(state: ReviewState | undefined, now: number): boolean {
   return state !== undefined && Date.parse(state.due) <= now;
 }
 
-/** How many of these decision positions are currently due for review. */
-export function dueCount(decisionKeys: string[], states: Map<string, ReviewState>, now = Date.now()): number {
-  return decisionKeys.filter((key) => isDue(states.get(key), now)).length;
-}
-
-/** Number of distinct root-to-leaf variations saved in the repertoire. */
-export function lineCount(graph: PositionGraph): number {
-  const routeIndex = buildRouteIndex(graph);
-  let count = 0;
-  for (const [id, route] of routeIndex) {
-    if (route.length > 0 && activeEdges(graph, id).length === 0) count += 1;
+/** The earliest due timestamp among a line's due decisions, or undefined if none are due. */
+function lineDueTimestamp(line: DrillLinePlan, states: Map<string, ReviewState>, now: number): number | undefined {
+  let earliest: number | undefined;
+  for (const key of line.decisionKeys) {
+    const state = states.get(key);
+    if (!state || !isDue(state, now)) continue;
+    const due = Date.parse(state.due);
+    if (earliest === undefined || due < earliest) earliest = due;
   }
-  return count;
+  return earliest;
 }
 
-export function selectSession(
-  decisionKeys: string[],
+/** Whether any decision in the line has never been reviewed. */
+function lineHasFreshDecision(line: DrillLinePlan, states: Map<string, ReviewState>): boolean {
+  return line.decisionKeys.some((key) => !states.has(key));
+}
+
+/** The line's worst (lowest-ease, most-lapsed) reviewed decision — used only to rank padding candidates. */
+function lineWeakness(line: DrillLinePlan, states: Map<string, ReviewState>): { ease: number; lapses: number } {
+  let worst = { ease: Infinity, lapses: -Infinity };
+  for (const key of line.decisionKeys) {
+    const state = states.get(key);
+    if (!state) continue;
+    if (state.ease < worst.ease || (state.ease === worst.ease && state.lapses > worst.lapses)) {
+      worst = { ease: state.ease, lapses: state.lapses };
+    }
+  }
+  return worst;
+}
+
+/** How many of these lines currently have a decision due for review. */
+export function dueLineCount(lines: DrillLinePlan[], states: Map<string, ReviewState>, now = Date.now()): number {
+  return lines.filter((line) => lineDueTimestamp(line, states, now) !== undefined).length;
+}
+
+/**
+ * Chooses which lines make up a session: lines with an overdue decision first (most
+ * overdue line first), then lines still carrying a never-reviewed decision, then — only
+ * to pad a fixed-size session — the weakest known lines. Pass size "all" to take every
+ * due-or-new line with no padding.
+ */
+export function selectLineSession(
+  lines: DrillLinePlan[],
   states: Map<string, ReviewState>,
   size: number | "all",
   now = Date.now(),
-): string[] {
-  const due = decisionKeys
-    .filter((key) => isDue(states.get(key), now))
-    .sort((a, b) => Date.parse(states.get(a)!.due) - Date.parse(states.get(b)!.due));
+): DrillLinePlan[] {
+  const due = lines
+    .map((line) => ({ line, due: lineDueTimestamp(line, states, now) }))
+    .filter((entry): entry is { line: DrillLinePlan; due: number } => entry.due !== undefined)
+    .sort((a, b) => a.due - b.due)
+    .map((entry) => entry.line);
 
-  const fresh = decisionKeys.filter((key) => !states.has(key));
-  const chosen = new Set([...due, ...fresh]);
+  const dueIds = new Set(due.map((line) => line.id));
+  const fresh = lines.filter((line) => !dueIds.has(line.id) && lineHasFreshDecision(line, states));
+  const chosenIds = new Set([...dueIds, ...fresh.map((line) => line.id)]);
 
   if (size === "all") return [...due, ...fresh];
 
-  const weak = decisionKeys
-    .filter((key) => !chosen.has(key))
+  const weak = lines
+    .filter((line) => !chosenIds.has(line.id))
     .sort((a, b) => {
-      const stateA = states.get(a)!;
-      const stateB = states.get(b)!;
-      return stateA.ease - stateB.ease || stateB.lapses - stateA.lapses;
+      const weaknessA = lineWeakness(a, states);
+      const weaknessB = lineWeakness(b, states);
+      return weaknessA.ease - weaknessB.ease || weaknessB.lapses - weaknessA.lapses;
     });
 
   return [...due, ...fresh, ...weak].slice(0, size);

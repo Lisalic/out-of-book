@@ -33,12 +33,18 @@ export function ReviewScreen({ session, reviewStates, onDone, onAgain }: ReviewS
     : null;
   const [now] = useState(() => Date.now());
 
-  const dueFor = (positionKey: string) =>
-    reviewStates.find((state) => state.repertoireId === session.repertoireId && state.positionKey === positionKey);
+  /** Earliest upcoming review among a line's decisions — the soonest you'd see any part of it again. */
+  const dueFor = (positionKeys: string[]) => {
+    const due = positionKeys
+      .map((positionKey) => reviewStates.find((state) => state.repertoireId === session.repertoireId && state.positionKey === positionKey))
+      .filter((state): state is ReviewState => state !== undefined)
+      .reduce<string | undefined>((soonest, state) => (!soonest || state.due < soonest ? state.due : soonest), undefined);
+    return due;
+  };
 
   return (
     <section className="mx-auto w-[min(1180px,calc(100%-56px))] flex-1 py-11">
-      <p className="eyebrow">Session closed · {results.length || 1} positions</p>
+      <p className="eyebrow">Session closed · {results.length || 1} lines</p>
       <h1 className="mt-4.5 text-[64px] leading-[0.9] font-bold tracking-tighter text-balance sm:text-[88px]">
         {firstTry.toString().toUpperCase()} OF {attempts.length}, FIRST TRY.
       </h1>
@@ -74,21 +80,21 @@ export function ReviewScreen({ session, reviewStates, onDone, onAgain }: ReviewS
 
       <section className="mt-6">
         <div className="mono grid grid-cols-[48px_1.5fr_1fr_90px_90px_130px] gap-4 px-1 pb-3 text-[10px] font-bold tracking-wide text-ink-faint uppercase">
-          <span>#</span><span>Position</span><span>Finish</span><span>Plies</span><span>Score</span><span>Next review</span>
+          <span>#</span><span>Line</span><span>Finish</span><span>Plies</span><span>Score</span><span>Next review</span>
         </div>
         <div className="flex flex-col gap-0.5">
           {results.map((line) => {
-            const due = dueFor(line.targetPositionKey);
+            const due = dueFor(line.decisionKeys);
             return (
               <div className="panel grid grid-cols-[48px_1.5fr_1fr_90px_90px_130px] items-center gap-4 p-4.5" key={line.lineIndex}>
                 <span className="mono text-xs text-ink-faint">{String(line.lineIndex + 1).padStart(2, "0")}</span>
-                <span className="text-lg font-semibold tracking-tight">Position {line.lineIndex + 1}</span>
+                <span className="text-lg font-semibold tracking-tight">Line {line.lineIndex + 1}</span>
                 <span className={`mono text-[11px] tracking-wide uppercase ${line.leftBook ? "text-accent" : "text-ink-muted"}`}>
                   {line.completionReason === "checkmate" ? "Checkmate" : line.leftBook ? "Sparred" : "In book"}
                 </span>
                 <span className="mono text-xs text-ink-muted">{line.moves.length}</span>
                 <span className="mono text-lg font-bold">{line.completionReason === "checkmate" ? "—" : typeof line.evaluationCp === "number" ? formatEvaluation(line.evaluationCp) : "Unavailable"}</span>
-                <span className="mono text-xs text-ink-faint">{due ? formatDue(due.due, now) : "—"}</span>
+                <span className="mono text-xs text-ink-faint">{due ? formatDue(due, now) : "—"}</span>
               </div>
             );
           })}

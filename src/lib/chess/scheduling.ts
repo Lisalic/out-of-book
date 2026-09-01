@@ -2,12 +2,6 @@ import { activeEdges } from "./graph";
 import { fenTurn } from "./position-key";
 import type { DrillLinePlan, PositionGraph, ReviewGrade, ReviewState, TraineeColor } from "./types";
 
-function isDecisionPosition(graph: PositionGraph, id: string, traineeColor: TraineeColor): boolean {
-  const position = graph.positions[id];
-  if (!position || fenTurn(position.fen) !== traineeColor) return false;
-  return activeEdges(graph, id).some((edge) => edge.isAccepted);
-}
-
 /**
  * Positions reachable from the root where it is the trainee's move and at least one
  * accepted move is saved — the individual branch points that make up a line. This is
@@ -21,11 +15,14 @@ export function decisionPositions(graph: PositionGraph, traineeColor: TraineeCol
   if (!root || !graph.positions[root]) return [];
   const visited = new Set([root]);
   const queue = [root];
+  let index = 0;
   const result: string[] = [];
-  while (queue.length) {
-    const current = queue.shift()!;
-    if (isDecisionPosition(graph, current, traineeColor)) result.push(current);
-    for (const edge of activeEdges(graph, current)) {
+  while (index < queue.length) {
+    const current = queue[index++];
+    const position = graph.positions[current];
+    const edges = activeEdges(graph, current);
+    if (position && fenTurn(position.fen) === traineeColor && edges.some((edge) => edge.isAccepted)) result.push(current);
+    for (const edge of edges) {
       if (visited.has(edge.to)) continue;
       visited.add(edge.to);
       queue.push(edge.to);
@@ -48,12 +45,19 @@ export function repertoireLines(graph: PositionGraph, traineeColor: TraineeColor
   if (!root || !graph.positions[root]) return [];
   const edgeUcis = new Map<string, string[]>([[root, []]]);
   const idPath = new Map<string, string[]>([[root, [root]]]);
+  const decisionKeys = new Set<string>();
+  const nonLeaf = new Set<string>();
   const queue = [root];
-  while (queue.length) {
-    const current = queue.shift()!;
+  let index = 0;
+  while (index < queue.length) {
+    const current = queue[index++];
     const ucis = edgeUcis.get(current)!;
     const path = idPath.get(current)!;
-    for (const edge of activeEdges(graph, current)) {
+    const position = graph.positions[current];
+    const edges = activeEdges(graph, current);
+    if (edges.length > 0) nonLeaf.add(current);
+    if (position && fenTurn(position.fen) === traineeColor && edges.some((edge) => edge.isAccepted)) decisionKeys.add(current);
+    for (const edge of edges) {
       if (edgeUcis.has(edge.to)) continue;
       edgeUcis.set(edge.to, [...ucis, edge.uci]);
       idPath.set(edge.to, [...path, edge.to]);
@@ -63,10 +67,10 @@ export function repertoireLines(graph: PositionGraph, traineeColor: TraineeColor
 
   const lines: DrillLinePlan[] = [];
   for (const [leafId, path] of idPath) {
-    if (path.length < 2 || activeEdges(graph, leafId).length > 0) continue;
-    const decisionKeys = path.filter((id) => isDecisionPosition(graph, id, traineeColor));
-    if (!decisionKeys.length) continue;
-    lines.push({ id: leafId, edgeUcis: edgeUcis.get(leafId)!, decisionKeys });
+    if (path.length < 2 || nonLeaf.has(leafId)) continue;
+    const lineDecisionKeys = path.filter((id) => decisionKeys.has(id));
+    if (!lineDecisionKeys.length) continue;
+    lines.push({ id: leafId, edgeUcis: edgeUcis.get(leafId)!, decisionKeys: lineDecisionKeys });
   }
   return lines;
 }

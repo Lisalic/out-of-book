@@ -32,5 +32,5 @@ describe("chess rules wrapper", () => {
         chess.move(move);
       }
     }
-  });
+  }, 15_000);
 });

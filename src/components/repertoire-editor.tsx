@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { Chessboard } from "./chessboard";
+import { EvalBar } from "./eval-bar";
 import { RepertoireLine } from "./repertoire-line";
 import { useBoardFlip } from "./use-board-flip";
 import { useBoardKeys } from "./use-board-keys";
+import { useLiveEvaluation } from "./use-live-evaluation";
 import { activeEdges, restorableDeletedEdgeIds } from "@/lib/chess/graph";
 import { importPgn, PgnImportError } from "@/lib/chess/pgn";
 import { exportPgn } from "@/lib/chess/pgn-export";
@@ -76,6 +78,7 @@ export function RepertoireEditor({
   const [error, setError] = useState<string>();
   const { flipped: boardFlipped, toggle: toggleFlip } = useBoardFlip();
   const position = repertoire.graph.positions[positionId];
+  const evaluation = useLiveEvaluation(position.fen);
 
   function previewImport() {
     try {
@@ -115,7 +118,7 @@ export function RepertoireEditor({
         <span className="mono justify-self-end text-[11px] text-ink-faint">Saved automatically</span>
       </header>
       <div className="mx-auto grid w-[min(1220px,calc(100%-36px))] grid-cols-1 gap-0.5 py-6 lg:grid-cols-[1fr_420px] lg:items-start">
-        <div>
+        <div className="mx-auto w-full max-w-[600px]">
           <div className="flex items-baseline justify-between gap-5 pb-4">
             <div>
               <p className="eyebrow">Editing · ply {history.length.toString().padStart(2, "0")}</p>
@@ -123,12 +126,15 @@ export function RepertoireEditor({
             </div>
             <p className="mono max-w-[26ch] text-right text-xs leading-relaxed text-ink-muted">Move a piece to add a line.</p>
           </div>
-          <div className="panel p-3.5">
-            <Chessboard
-              fen={position.fen}
-              orientation={boardFlipped ? (repertoire.traineeColor === "white" ? "black" : "white") : repertoire.traineeColor}
-              onMove={onMove}
-            />
+          <div className="flex gap-0.5">
+            <EvalBar cp={evaluation.cp} evaluating={evaluation.status === "evaluating"} />
+            <div className="min-w-0 flex-1 panel p-3.5">
+              <Chessboard
+                fen={position.fen}
+                orientation={boardFlipped ? (repertoire.traineeColor === "white" ? "black" : "white") : repertoire.traineeColor}
+                onMove={onMove}
+              />
+            </div>
           </div>
           <div className="mt-0.5 grid grid-cols-4 gap-0.5">
             <button

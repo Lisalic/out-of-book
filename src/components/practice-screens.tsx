@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Chessboard } from "./chessboard";
+import { EvalBar } from "./eval-bar";
 import { MoveNavStrip } from "./move-nav";
 import { useBoardFlip } from "./use-board-flip";
 import { useBoardKeys } from "./use-board-keys";
@@ -219,20 +220,6 @@ function FigurineMoveList({ moves, viewIndex, onSelectPly }: { moves: MoveLedger
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function EvalBar({ cp, evaluating }: { cp?: number | null; evaluating?: boolean }) {
-  const clamped = typeof cp === "number" ? Math.max(-800, Math.min(800, cp)) : 0;
-  const whitePercent = typeof cp === "number" ? 50 + (clamped / 800) * 50 : 50;
-  return (
-    <div className="relative hidden w-4 flex-none self-stretch overflow-hidden bg-surface-sunken sm:block" aria-hidden="true">
-      <div
-        className={`absolute inset-x-0 bottom-0 bg-ink-secondary transition-[height] duration-500 ${evaluating ? "animate-pulse" : ""}`}
-        style={{ height: `${whitePercent}%` }}
-      />
-      <div className="absolute inset-x-0 top-1/2 h-[3px] bg-accent" />
     </div>
   );
 }

@@ -157,19 +157,23 @@ export function RepertoireEditor({
               />
             </div>
           </div>
-          <div className="mt-0.5 grid grid-cols-2 gap-0.5 sm:grid-cols-5">
+          <div className="mt-0.5 flex flex-wrap gap-0.5" role="group" aria-label="Board controls">
             <button
               type="button"
               disabled={!history.length}
-              className="btn justify-start px-4.5 py-4 disabled:opacity-30"
+              className="btn h-12 flex-auto px-3 disabled:opacity-30"
               onClick={() => { const prev = history.at(-1); if (prev) onNavigate(prev, history.slice(0, -1)); }}
             >
               ← Previous
             </button>
-            <button type="button" className="btn justify-start px-4.5 py-4" onClick={() => onNavigate(repertoire.graph.roots[0], [])}>Start position</button>
-            <button type="button" className="btn justify-start px-4.5 py-4" onClick={toggleFlip}>Flip ⇅</button>
-            <SoundToggle className="btn px-4.5 py-4" />
-            <button type="button" className="btn justify-start px-4.5 py-4" onClick={() => downloadPgn(repertoire)}>Export PGN</button>
+            <button type="button" className="btn h-12 flex-auto px-3" onClick={() => onNavigate(repertoire.graph.roots[0], [])}>Start position</button>
+            <div className="flex flex-none gap-0.5">
+              <button type="button" className="btn h-12 w-12 flex-none px-0 text-xl" onClick={toggleFlip} aria-label="Flip board" title="Flip board">
+                <span aria-hidden="true">⇅</span>
+              </button>
+              <SoundToggle className="btn h-12 w-12 flex-none px-0" />
+            </div>
+            <button type="button" className="btn h-12 flex-auto px-3" onClick={() => downloadPgn(repertoire)}>Export PGN</button>
           </div>
         </div>
 

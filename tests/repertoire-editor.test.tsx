@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { RepertoireEditor } from "@/components/repertoire-editor";
 import { importPgn } from "@/lib/chess/pgn";
@@ -43,6 +43,8 @@ describe("RepertoireEditor keyboard branch selection", () => {
         onImport={vi.fn()}
       />,
     );
+
+    expect(screen.getByRole("button", { name: "Mute board sounds" })).toBeVisible();
 
     // Nf3 is the mainline (sorted first by activeEdges), Bc4 is the sideline — option 2.
     fireEvent.keyDown(window, { key: "2" });

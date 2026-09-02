@@ -1,9 +1,11 @@
 "use client";
 
 import { Chess, type Square } from "chess.js";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Chessboard as ReactChessboard, type ChessboardOptions } from "react-chessboard";
+import { playBoardSound, unlockBoardSound } from "./board-sound";
 import { checkedKingSquare, describePosition, legalMoves } from "@/lib/chess/rules";
+import { classifyPositionTransition } from "@/lib/chess/move-sound";
 import { useBoardPalette } from "./use-board-theme";
 import type { TraineeColor } from "@/lib/chess/types";
 
@@ -12,6 +14,8 @@ interface ChessboardProps {
   orientation?: TraineeColor;
   interactive?: boolean;
   lastMove?: string;
+  /** Exact traversed move for graph edges with stale FEN counters; null explicitly silences a jump. */
+  soundMove?: string | null;
   /** A legal-but-rejected move to flag on the board (from/to tint) without changing the position. */
   rejectedMove?: string;
   onMove?: (uci: string) => void;
@@ -22,6 +26,7 @@ export function Chessboard({
   orientation = "white",
   interactive = true,
   lastMove,
+  soundMove,
   rejectedMove,
   onMove,
 }: ChessboardProps) {
@@ -30,17 +35,35 @@ export function Chessboard({
   const palette = useBoardPalette();
   const [selection, setSelection] = useState<{ fen: string; square: Square }>();
   const [promotion, setPromotion] = useState<{ fen: string; from: Square; to: Square }>();
+  const previousFen = useRef(fen);
+  const previousRejectedMove = useRef(rejectedMove);
   const selected = selection?.fen === fen ? selection.square : undefined;
   const activePromotion = promotion?.fen === fen ? promotion : undefined;
   const destinations = selected ? legalMoves(fen, selected).map((move) => move.to) : [];
   const checkedSquare = useMemo(() => checkedKingSquare(fen), [fen]);
 
+  useEffect(() => {
+    const sound = soundMove === null ? undefined : classifyPositionTransition(previousFen.current, fen, soundMove);
+    previousFen.current = fen;
+    if (sound) playBoardSound(sound);
+  }, [fen, soundMove]);
+
+  useEffect(() => {
+    if (rejectedMove && rejectedMove !== previousRejectedMove.current) playBoardSound("rejected");
+    previousRejectedMove.current = rejectedMove;
+  }, [rejectedMove]);
+
   function attempt(from: Square, to: Square): boolean {
     if (!interactive) return false;
+    unlockBoardSound();
     const matches = legalMoves(fen, from).filter((move) => move.to === to);
     if (!matches.length) {
       const piece = chess.get(to);
-      setSelection(piece?.color === chess.turn() ? { fen, square: to } : undefined);
+      if (piece?.color === chess.turn()) setSelection({ fen, square: to });
+      else {
+        setSelection(undefined);
+        playBoardSound("illegal");
+      }
       return false;
     }
     if (matches.some((move) => move.promotion)) {

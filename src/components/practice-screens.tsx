@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Chessboard } from "./chessboard";
+import { unlockBoardSound } from "./board-sound";
 import { EvalBar } from "./eval-bar";
 import { MoveNavStrip } from "./move-nav";
 import { useBoardFlip } from "./use-board-flip";
@@ -162,7 +163,7 @@ export function PracticeSetup({
           <button
             type="button"
             className="btn btn-primary py-7.5 text-base tracking-wider"
-            onClick={onStart}
+            onClick={() => { unlockBoardSound(); onStart(); }}
             disabled={lineCount === 0}
           >
             Start session →

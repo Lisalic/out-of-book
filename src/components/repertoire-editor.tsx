@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Chessboard } from "./chessboard";
+import { SoundToggle } from "./board-sound";
 import { EvalBar } from "./eval-bar";
 import { RepertoireLine } from "./repertoire-line";
 import { useBoardFlip } from "./use-board-flip";
@@ -104,6 +105,17 @@ export function RepertoireEditor({
 
   const branchOptions = activeEdges(repertoire.graph, positionId);
   const previous = history.at(-1);
+  const lastMove = previous ? activeEdges(repertoire.graph, previous).find((edge) => edge.to === positionId)?.uci : undefined;
+  const [soundNavigation, setSoundNavigation] = useState({ positionId, historyLength: history.length, move: null as string | null });
+  if (soundNavigation.positionId !== positionId || soundNavigation.historyLength !== history.length) {
+    const historyDelta = history.length - soundNavigation.historyLength;
+    const soundFrom = historyDelta === 1 ? soundNavigation.positionId : historyDelta === -1 ? positionId : undefined;
+    const soundTo = historyDelta === 1 ? positionId : historyDelta === -1 ? soundNavigation.positionId : undefined;
+    const move = soundFrom && soundTo
+      ? activeEdges(repertoire.graph, soundFrom).find((edge) => edge.to === soundTo)?.uci ?? null
+      : null;
+    setSoundNavigation({ positionId, historyLength: history.length, move });
+  }
 
   useBoardKeys({
     onFlip: toggleFlip,
@@ -139,11 +151,13 @@ export function RepertoireEditor({
               <Chessboard
                 fen={position.fen}
                 orientation={boardFlipped ? (repertoire.traineeColor === "white" ? "black" : "white") : repertoire.traineeColor}
+                lastMove={lastMove}
+                soundMove={soundNavigation.move}
                 onMove={onMove}
               />
             </div>
           </div>
-          <div className="mt-0.5 grid grid-cols-4 gap-0.5">
+          <div className="mt-0.5 grid grid-cols-2 gap-0.5 sm:grid-cols-5">
             <button
               type="button"
               disabled={!history.length}
@@ -154,6 +168,7 @@ export function RepertoireEditor({
             </button>
             <button type="button" className="btn justify-start px-4.5 py-4" onClick={() => onNavigate(repertoire.graph.roots[0], [])}>Start position</button>
             <button type="button" className="btn justify-start px-4.5 py-4" onClick={toggleFlip}>Flip ⇅</button>
+            <SoundToggle className="btn px-4.5 py-4" />
             <button type="button" className="btn justify-start px-4.5 py-4" onClick={() => downloadPgn(repertoire)}>Export PGN</button>
           </div>
         </div>

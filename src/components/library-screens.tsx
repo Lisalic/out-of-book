@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Chessboard } from "./chessboard";
+import { SoundToggle } from "./board-sound";
 import { decisionPositions, dueLineCount, repertoireLines } from "@/lib/chess/scheduling";
 import type { Repertoire, ReviewState, TrainingSession } from "@/lib/chess/types";
 
@@ -105,8 +106,9 @@ function FirstRunHero({ onImport, onBuild }: { onImport: () => void; onBuild: ()
           <button type="button" className="btn px-8 py-5 text-sm" onClick={onBuild}>Build on the board</button>
         </div>
       </div>
-      <div className="w-full max-w-[400px] justify-self-center lg:justify-self-end" aria-hidden="true">
-        <Chessboard fen={HERO_FEN} interactive={false} />
+      <div className="relative w-full max-w-[400px] justify-self-center lg:justify-self-end">
+        <div aria-hidden="true"><Chessboard fen={HERO_FEN} interactive={false} /></div>
+        <SoundToggle className="absolute right-2 bottom-2 z-10 grid size-10 cursor-pointer place-items-center bg-canvas hover:bg-line" />
       </div>
     </div>
   );

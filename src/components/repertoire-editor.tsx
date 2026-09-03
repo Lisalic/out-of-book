@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Chessboard } from "./chessboard";
 import { SoundToggle } from "./board-sound";
+import { BestMoveButton } from "./best-move-button";
+import { useBestMove } from "./use-best-move";
 import { EvalBar } from "./eval-bar";
 import { RepertoireLine } from "./repertoire-line";
 import { useBoardFlip } from "./use-board-flip";
@@ -82,6 +84,11 @@ export function RepertoireEditor({
   const { flipped: boardFlipped, toggle: toggleFlip } = useBoardFlip();
   const position = repertoire.graph.positions[positionId];
   const evaluation = useLiveEvaluation(position.fen);
+  const bestMove = useBestMove({
+    fen: position.fen,
+    contextKey: JSON.stringify([repertoire.id, repertoire.revision, positionId, history]),
+    onMove,
+  });
 
   function previewImport() {
     try {
@@ -168,6 +175,7 @@ export function RepertoireEditor({
             </button>
             <button type="button" className="btn h-12 flex-auto px-3" onClick={() => onNavigate(repertoire.graph.roots[0], [])}>Start position</button>
             <div className="flex flex-none gap-0.5">
+              <BestMoveButton onClick={bestMove.play} disabled={bestMove.disabled} thinking={bestMove.thinking} className="btn h-12 w-12 flex-none px-0" />
               <button type="button" className="btn h-12 w-12 flex-none px-0 text-xl" onClick={toggleFlip} aria-label="Flip board" title="Flip board">
                 <span aria-hidden="true">⇅</span>
               </button>
@@ -175,6 +183,7 @@ export function RepertoireEditor({
             </div>
             <button type="button" className="btn h-12 flex-auto px-3" onClick={() => downloadPgn(repertoire)}>Export PGN</button>
           </div>
+          {bestMove.error && <p role="alert" className="mt-2 text-sm text-danger">{bestMove.error}</p>}
         </div>
 
         <aside className="flex flex-col gap-0.5">

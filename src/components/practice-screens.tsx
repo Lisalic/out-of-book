@@ -5,6 +5,7 @@ import { Chessboard } from "./chessboard";
 import { unlockBoardSound } from "./board-sound";
 import { EvalBar } from "./eval-bar";
 import { MoveNavStrip } from "./move-nav";
+import { useBestMove } from "./use-best-move";
 import { useBoardFlip } from "./use-board-flip";
 import { useBoardKeys } from "./use-board-keys";
 import { activeEdges } from "@/lib/chess/graph";
@@ -287,6 +288,12 @@ export function TrainingScreen({
   const atStart = viewIndex === 0;
   const viewFen = positions[viewIndex] ?? session.fen;
   const viewLastMove = viewIndex > 0 ? session.moves[viewIndex - 1]?.uci : undefined;
+  const bestMove = useBestMove({
+    fen: viewFen,
+    contextKey: JSON.stringify([repertoire.id, repertoire.revision, session.id, session.drill?.currentLineIndex, session.phase, session.moves.length, viewIndex]),
+    enabled: isPlayersTurn && atEnd,
+    onMove,
+  });
 
   const primaryAction = lineDone && scoreReady ? (currentLine < lineCount ? onNextLine : onReview) : undefined;
   useBoardKeys({
@@ -404,7 +411,9 @@ export function TrainingScreen({
               onNext={() => setViewIndex((index) => Math.min(positions.length - 1, index + 1))}
               onLast={() => setViewIndex(positions.length - 1)}
               onFlip={onFlipBoard}
+              bestMove={bestMove}
             />
+            {bestMove.error && <p role="alert" className="p-3 text-sm text-danger">{bestMove.error}</p>}
           </div>
         </div>
       </div>

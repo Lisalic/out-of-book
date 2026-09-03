@@ -7,14 +7,15 @@ export type BoardSound = MoveSound | "rejected" | "illegal";
 
 const STORAGE_KEY = "out-of-book-board-sound-muted";
 const SOUND_SOURCES: Record<BoardSound, string> = {
-  move: "/sounds/chesscom/move-self.mp3",
-  capture: "/sounds/chesscom/capture.mp3",
-  castle: "/sounds/chesscom/castle.mp3",
-  check: "/sounds/chesscom/move-check.mp3",
-  promotion: "/sounds/chesscom/promote.mp3",
-  "game-end": "/sounds/chesscom/game-end.mp3",
-  rejected: "/sounds/chesscom/illegal.mp3",
-  illegal: "/sounds/chesscom/illegal.mp3",
+  move: "/sounds/lichess-standard/Move.mp3",
+  capture: "/sounds/lichess-standard/Capture.mp3",
+  castle: "/sounds/lichess-standard/Move.mp3",
+  // Standard's extra check cue is silence; retain the audible move cue here.
+  check: "/sounds/lichess-standard/Move.mp3",
+  promotion: "/sounds/lichess-standard/Confirmation.mp3",
+  "game-end": "/sounds/lichess-standard/GenericNotify.mp3",
+  rejected: "/sounds/lichess-standard/Error.mp3",
+  illegal: "/sounds/lichess-standard/Error.mp3",
 };
 
 const listeners = new Set<() => void>();

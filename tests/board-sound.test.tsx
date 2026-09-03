@@ -43,6 +43,22 @@ beforeEach(() => {
 });
 
 describe("board sound", () => {
+  it.each([
+    ["move", "Move.mp3"],
+    ["capture", "Capture.mp3"],
+    ["castle", "Move.mp3"],
+    ["check", "Move.mp3"],
+    ["promotion", "Confirmation.mp3"],
+    ["game-end", "GenericNotify.mp3"],
+    ["rejected", "Error.mp3"],
+    ["illegal", "Error.mp3"],
+  ] as const)("plays the standard pack's %s cue from %s", (sound, filename) => {
+    playBoardSound(sound);
+    expect(audioElements.some((audio) =>
+      audio.src === `/sounds/lichess-standard/${filename}` && audio.play.mock.calls.length === 1,
+    )).toBe(true);
+  });
+
   it("keeps mute controls synchronized and persists the preference", () => {
     const first = render(<><SoundToggle /><SoundToggle /></>);
 
@@ -97,14 +113,14 @@ describe("board sound", () => {
 
   it("stops the previous cue before playing the next one", () => {
     playBoardSound("move");
-    const firstCue = audioElements.find((audio) => audio.src.endsWith("/move-self.mp3"));
+    const firstCue = audioElements.find((audio) => audio.src.endsWith("/Move.mp3"));
 
     playBoardSound("capture");
 
     expect(firstCue?.volume).toBe(1);
     expect(firstCue?.play).toHaveBeenCalledOnce();
     expect(firstCue?.pause).toHaveBeenCalledOnce();
-    expect(audioElements.find((audio) => audio.src.endsWith("/capture.mp3"))?.play).toHaveBeenCalledOnce();
+    expect(audioElements.find((audio) => audio.src.endsWith("/Capture.mp3"))?.play).toHaveBeenCalledOnce();
   });
 
   it("includes a mute control in board move navigation", () => {

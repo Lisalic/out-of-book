@@ -1,13 +1,62 @@
 "use client";
 
 import { Chess, type Square } from "chess.js";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { type RefObject, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Chessboard as ReactChessboard, type ChessboardOptions } from "react-chessboard";
 import { playBoardSound, unlockBoardSound } from "./board-sound";
 import { checkedKingSquare, describePosition, legalMoves } from "@/lib/chess/rules";
 import { classifyPositionTransition } from "@/lib/chess/move-sound";
 import { useBoardPalette } from "./use-board-theme";
 import type { TraineeColor } from "@/lib/chess/types";
+
+/** Thickness of the coordinate gutters that sit outside the board, in px. */
+const RAIL_PX = 20;
+const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
+const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
+
+interface BoardMetrics {
+  /** Board edge length in px: always a whole number, and always a multiple of 8. */
+  size: number;
+  /** Horizontal nudge that lands the board's left edge on a whole pixel. */
+  offset: number;
+}
+
+/**
+ * react-chessboard lays its squares out with `repeat(8, 1fr)`, so a board sized by its
+ * container gets fractional squares — at the editor's 554px that is 69.25px a square, and
+ * every seam, notation glyph and piece outline falls on a different fraction of a device
+ * pixel. The board renders soft and visibly uneven. Rounding the board down to a multiple
+ * of 8 makes every square an identical whole number of pixels, and nudging it onto a whole
+ * pixel puts all nine seams on the device grid.
+ */
+function useCrispBoard(ref: RefObject<HTMLDivElement | null>): BoardMetrics {
+  const [metrics, setMetrics] = useState<BoardMetrics>({ size: 0, offset: 0 });
+
+  useLayoutEffect(() => {
+    const track = ref.current;
+    if (!track) return;
+
+    function measure() {
+      const rect = (track as HTMLDivElement).getBoundingClientRect();
+      const size = Math.max(8, Math.floor((rect.width - RAIL_PX) / 8) * 8);
+      // Centre the board in whatever the rounding left over, then pull it back onto a
+      // whole pixel. The nudge moves the board, never the track we just measured, so
+      // this cannot feed back into the observer.
+      const centred = (rect.width - RAIL_PX - size) / 2;
+      const offset = centred - ((rect.left + RAIL_PX + centred) % 1);
+      setMetrics((current) =>
+        current.size === size && Math.abs(current.offset - offset) < 0.01 ? current : { size, offset },
+      );
+    }
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return metrics;
+}
 
 interface ChessboardProps {
   fen: string;
@@ -31,6 +80,8 @@ export function Chessboard({
   onMove,
 }: ChessboardProps) {
   const chess = useMemo(() => new Chess(fen), [fen]);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const { size, offset } = useCrispBoard(trackRef);
   const boardId = useId();
   const palette = useBoardPalette();
   const [selection, setSelection] = useState<{ fen: string; square: Square }>();
@@ -106,7 +157,7 @@ export function Chessboard({
     allowDrawingArrows: false,
     showAnimations: true,
     animationDurationInMs: 140,
-    showNotation: true,
+    showNotation: false,
     lightSquareStyle: { backgroundColor: palette.light },
     darkSquareStyle: { backgroundColor: palette.dark },
     boardStyle: { borderRadius: "0", boxShadow: "none", overflow: "hidden" },
@@ -122,10 +173,39 @@ export function Chessboard({
     },
   };
 
+  const files = orientation === "white" ? FILES : [...FILES].reverse();
+  const ranks = orientation === "white" ? RANKS : [...RANKS].reverse();
+
   return (
     <div className="relative w-full">
-      <div className="aspect-square w-full bg-canvas [&>div]:h-full [&>div]:w-full">
-        <ReactChessboard options={options} />
+      <div ref={trackRef} className="w-full">
+        <div className="flex" style={{ marginLeft: offset }}>
+          {/* Coordinates live outside the board so nothing overlaps the pieces. */}
+          <div
+            aria-hidden="true"
+            className="flex flex-col text-ink-faint"
+            style={{ width: RAIL_PX, height: size }}
+          >
+            {ranks.map((rank) => (
+              <span key={rank} className="mono flex flex-1 items-center justify-center text-[10px] font-bold tabular-nums">
+                {rank}
+              </span>
+            ))}
+          </div>
+          <div className="bg-canvas [&>div]:h-full [&>div]:w-full" style={{ width: size, height: size }}>
+            <ReactChessboard options={options} />
+          </div>
+        </div>
+        <div className="flex" style={{ marginLeft: offset }} aria-hidden="true">
+          <div style={{ width: RAIL_PX }} />
+          <div className="flex text-ink-faint" style={{ width: size, height: RAIL_PX }}>
+            {files.map((file) => (
+              <span key={file} className="mono flex flex-1 items-center justify-center text-[10px] font-bold">
+                {file}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
       <p className="sr-only" aria-live="polite">{describePosition(fen)}</p>
       {activePromotion && (

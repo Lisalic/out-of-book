@@ -32,9 +32,16 @@ export function addGraphMove(
 ): MoveEdge {
   const chess = new Chess(fen);
   const from = ensurePosition(graph, fen, options.ply ?? 0).id;
-  const move = /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(sanOrUci)
-    ? chess.move({ from: sanOrUci.slice(0, 2), to: sanOrUci.slice(2, 4), promotion: sanOrUci[4] })
-    : chess.move(sanOrUci);
+  // chess.js rejects an illegal move by throwing its own parse error; normalize both that
+  // and a null return into one message, since callers report it to the user verbatim.
+  let move;
+  try {
+    move = /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(sanOrUci)
+      ? chess.move({ from: sanOrUci.slice(0, 2), to: sanOrUci.slice(2, 4), promotion: sanOrUci[4] })
+      : chess.move(sanOrUci);
+  } catch {
+    move = undefined;
+  }
   if (!move) throw new Error(`Illegal move ${sanOrUci}`);
   const uci = moveToUci(move);
   const to = ensurePosition(graph, chess.fen(), (options.ply ?? 0) + 1).id;

@@ -1,4 +1,5 @@
 import { activeEdges } from "./graph";
+import { createId } from "./id";
 import { fenTurn, positionKey } from "./position-key";
 import { gameResult, isCheckmate, isTerminal, playUci } from "./rules";
 import type {
@@ -11,10 +12,6 @@ import type {
   TrainingSession,
   TraineeColor,
 } from "./types";
-
-function id(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
 
 function nowIso(now = Date.now()): string {
   return new Date(now).toISOString();
@@ -38,7 +35,7 @@ export function createTrainingSession(args: {
 }): TrainingSession {
   const timestamp = nowIso(args.now);
   return {
-    id: id(),
+    id: createId("session"),
     repertoireId: args.repertoireId,
     traineeColor: args.traineeColor,
     phase: phaseForTurn(args.rootFen, args.traineeColor, true),

@@ -1,6 +1,7 @@
 "use client";
 
 import { activeEdges } from "@/lib/chess/graph";
+import { groupMoveRows, type MoveRow } from "@/lib/chess/move-rows";
 import { figurineSan } from "@/lib/chess/notation";
 import type { MoveEdge, PositionGraph } from "@/lib/chess/types";
 
@@ -8,12 +9,6 @@ interface LineEntry {
   edge: MoveEdge;
   historyAfter: string[];
   isCurrent: boolean;
-}
-
-interface MoveRow {
-  number: number;
-  white?: LineEntry;
-  black?: LineEntry;
 }
 
 interface RepertoireLineProps {
@@ -148,18 +143,7 @@ export function RepertoireLine({
   }
 
   const branchAhead = activeEdges(graph, branchPosition);
-  const rows: MoveRow[] = [];
-  entries.forEach((entry) => {
-    const fenFields = graph.positions[entry.edge.from].fen.split(" ");
-    const number = Number(fenFields[5]) || 1;
-    let row = rows.at(-1);
-    if (!row || row.number !== number) {
-      row = { number };
-      rows.push(row);
-    }
-    if (fenFields[1] === "w") row.white = entry;
-    else row.black = entry;
-  });
+  const rows: Array<MoveRow<LineEntry>> = groupMoveRows(entries, (entry) => graph.positions[entry.edge.from].fen);
 
   const selectedEntry = entries.find((entry) => entry.isCurrent);
 

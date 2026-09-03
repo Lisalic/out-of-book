@@ -8,19 +8,14 @@ import { MoveNavStrip } from "./move-nav";
 import { useBestMove } from "./use-best-move";
 import { useBoardFlip } from "./use-board-flip";
 import { useBoardKeys } from "./use-board-keys";
+import { DEVIATION_FREQUENCIES, formatChance } from "@/lib/chess/deviation";
 import { activeEdges } from "@/lib/chess/graph";
 import { formatEvaluation } from "@/lib/chess/evaluation";
 import { MAX_ENGINE_ELO, MIN_ENGINE_ELO } from "@/lib/chess/engine-strength";
+import { groupMoveRows } from "@/lib/chess/move-rows";
 import { figurineSan } from "@/lib/chess/notation";
 import type { DeviationFrequency, MoveLedgerEntry, Repertoire, TrainingSession } from "@/lib/chess/types";
 import type { EngineStatus } from "./use-training-engine";
-
-const FREQUENCIES: Array<{ value: DeviationFrequency; label: string; pct: string }> = [
-  { value: "never", label: "Never", pct: "0%" },
-  { value: "low", label: "Occasionally", pct: "10%" },
-  { value: "medium", label: "Sometimes", pct: "25%" },
-  { value: "high", label: "Often", pct: "50%" },
-];
 
 const STRENGTH_STOPS: Array<{ value: number; tier: string }> = [
   { value: 200, tier: "New" },
@@ -121,7 +116,7 @@ export function PracticeSetup({
           <div>
             <p className="label px-1 py-3">Leaves book</p>
             <div className="flex flex-col gap-0.5">
-              {FREQUENCIES.map((option) => (
+              {DEVIATION_FREQUENCIES.map((option) => (
                 <button
                   key={option.value}
                   type="button"
@@ -131,7 +126,7 @@ export function PracticeSetup({
                   }`}
                 >
                   <span className="block text-xl font-semibold tracking-tight">{option.label}</span>
-                  <span className="mono text-xl font-bold">{option.pct}</span>
+                  <span className="mono text-xl font-bold">{formatChance(option.chance)}</span>
                 </button>
               ))}
             </div>
@@ -176,18 +171,10 @@ export function PracticeSetup({
 }
 
 function FigurineMoveList({ moves, viewIndex, onSelectPly }: { moves: MoveLedgerEntry[]; viewIndex: number; onSelectPly: (index: number) => void }) {
-  const rows: Array<{ number: number; white?: { move: MoveLedgerEntry; index: number }; black?: { move: MoveLedgerEntry; index: number } }> = [];
-  moves.forEach((move, index) => {
-    const fenFields = move.fenBefore.split(" ");
-    const number = Number(fenFields[5]) || 1;
-    let row = rows.at(-1);
-    if (!row || row.number !== number) {
-      row = { number };
-      rows.push(row);
-    }
-    if (fenFields[1] === "w") row.white = { move, index };
-    else row.black = { move, index };
-  });
+  const rows = groupMoveRows(
+    moves.map((move, index) => ({ move, index })),
+    (entry) => entry.move.fenBefore,
+  );
 
   function Ply({ entry }: { entry?: { move: MoveLedgerEntry; index: number } }) {
     if (!entry) return <span className="ply is-empty">…</span>;
@@ -209,8 +196,8 @@ function FigurineMoveList({ moves, viewIndex, onSelectPly }: { moves: MoveLedger
       <p className="label">Moves</p>
       {rows.length > 0 && (
         <div className="mt-4 flex flex-col gap-0.5">
-          {rows.map((row) => (
-            <div key={row.number} className="grid grid-cols-[34px_1fr_1fr] items-center gap-2.5">
+          {rows.map((row, index) => (
+            <div key={`${row.number}-${index}`} className="grid grid-cols-[34px_1fr_1fr] items-center gap-2.5">
               <span className="mono text-[11px] text-ink-faint">{row.number}</span>
               <Ply entry={row.white} />
               <Ply entry={row.black} />

@@ -1,5 +1,25 @@
 import { sampleByScore } from "./engine-strength";
-import type { EngineCandidate } from "./types";
+import type { DeviationFrequency, EngineCandidate } from "./types";
+
+/**
+ * How often the opponent is allowed to leave the book, as one table: the label the
+ * setup screen shows and the probability the drill planner uses are the same setting,
+ * so a copy shown to the trainee can never drift from the odds they actually get.
+ */
+export const DEVIATION_FREQUENCIES: ReadonlyArray<{ value: DeviationFrequency; label: string; chance: number }> = [
+  { value: "never", label: "Never", chance: 0 },
+  { value: "low", label: "Occasionally", chance: 0.1 },
+  { value: "medium", label: "Sometimes", chance: 0.25 },
+  { value: "high", label: "Often", chance: 0.5 },
+];
+
+export function deviationChance(frequency: DeviationFrequency): number {
+  return DEVIATION_FREQUENCIES.find((option) => option.value === frequency)?.chance ?? 0;
+}
+
+export function formatChance(chance: number): string {
+  return `${Math.round(chance * 100)}%`;
+}
 
 export function seededRandom(seed: number): () => number {
   let state = seed >>> 0 || 0x9e3779b9;

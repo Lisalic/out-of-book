@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { HomeScreen, PracticeLibrary, RepertoireManager } from "@/components/library-screens";
 import { RepertoireLine } from "@/components/repertoire-line";
 import { figurineSan } from "@/lib/chess/notation";
+import { OPENING_PRESETS } from "@/lib/chess/opening-presets";
 import { importPgn } from "@/lib/chess/pgn";
 import { emptyGraph, ensurePosition } from "@/lib/chess/graph";
 import type { Repertoire } from "@/lib/chess/types";
@@ -26,6 +27,26 @@ function repertoire(pgn = "1. e4 e5 2. Nf3 *"): Repertoire {
 }
 
 describe("repertoire navigation screens", () => {
+  it("offers opening presets even before a repertoire exists", () => {
+    const onPresetSelect = vi.fn();
+    render(
+      <PracticeLibrary
+        repertoires={[]}
+        reviewStates={[]}
+        presetSide="white"
+        onPresetSideChange={vi.fn()}
+        onPresetSelect={onPresetSelect}
+        onPractice={vi.fn()}
+        onEdit={vi.fn()}
+        onManage={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Openings" }));
+    fireEvent.click(screen.getByRole("button", { name: /italian game.*rapid development/i }));
+    expect(onPresetSelect).toHaveBeenCalledWith(OPENING_PRESETS[0]);
+  });
+
   it("shows the first-run hero instead of an empty dashboard when no repertoire exists yet", () => {
     const onCreate = vi.fn();
     render(
@@ -41,6 +62,7 @@ describe("repertoire navigation screens", () => {
     );
 
     expect(screen.getByRole("button", { name: "Import a PGN" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Mute board sounds" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Import a PGN" }));
     expect(onCreate).toHaveBeenCalledExactlyOnceWith("import");
 
@@ -76,6 +98,9 @@ describe("repertoire navigation screens", () => {
       <PracticeLibrary
         repertoires={[repertoire("")]}
         reviewStates={[]}
+        presetSide="white"
+        onPresetSideChange={vi.fn()}
+        onPresetSelect={vi.fn()}
         onPractice={onPractice}
         onEdit={onEdit}
         onManage={vi.fn()}

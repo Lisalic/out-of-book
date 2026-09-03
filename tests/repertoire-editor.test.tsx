@@ -74,6 +74,8 @@ describe("RepertoireEditor keyboard branch selection", () => {
       />,
     );
 
+    expect(screen.getByRole("button", { name: "Mute board sounds" })).toBeVisible();
+
     // Nf3 is the mainline (sorted first by activeEdges), Bc4 is the sideline — option 2.
     fireEvent.keyDown(window, { key: "2" });
     expect(onNavigate).toHaveBeenCalledWith(bc4.to, [root, e4.to, e5.to]);

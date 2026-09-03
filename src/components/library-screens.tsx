@@ -2,8 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { Chessboard } from "./chessboard";
+import { OpeningPicker } from "./opening-picker";
+import { SoundToggle } from "./board-sound";
+import type { OpeningPreset } from "@/lib/chess/opening-presets";
 import { decisionPositions, dueLineCount, repertoireLines } from "@/lib/chess/scheduling";
-import type { Repertoire, ReviewState, TrainingSession } from "@/lib/chess/types";
+import type { Repertoire, ReviewState, TrainingSession, TraineeColor } from "@/lib/chess/types";
 
 export interface RepertoireStats {
   decisions: number;
@@ -126,8 +129,9 @@ function FirstRunHero({ onImport, onBuild }: { onImport: () => void; onBuild: ()
           <button type="button" className="btn px-8 py-5 text-sm" onClick={onBuild}>Build on the board</button>
         </div>
       </div>
-      <div className="w-full max-w-[400px] justify-self-center lg:justify-self-end" aria-hidden="true">
-        <Chessboard fen={HERO_FEN} interactive={false} />
+      <div className="relative w-full max-w-[400px] justify-self-center lg:justify-self-end">
+        <div aria-hidden="true"><Chessboard fen={HERO_FEN} interactive={false} /></div>
+        <SoundToggle className="absolute right-2 bottom-2 z-10 grid size-10 cursor-pointer place-items-center bg-canvas hover:bg-line" />
       </div>
     </div>
   );
@@ -241,16 +245,32 @@ export function HomeScreen({ repertoires, reviewStates, session, onPractice, onM
 interface PracticeLibraryProps {
   repertoires: Repertoire[];
   reviewStates: ReviewState[];
+  presetSide: TraineeColor;
+  onPresetSideChange: (side: TraineeColor) => void;
+  onPresetSelect: (preset: OpeningPreset) => void | Promise<void>;
   onPractice: (id: string) => void;
   onEdit: (id: string) => void;
   onManage: () => void;
 }
 
-export function PracticeLibrary({ repertoires, reviewStates, onPractice, onEdit, onManage }: PracticeLibraryProps) {
+export function PracticeLibrary({
+  repertoires,
+  reviewStates,
+  presetSide,
+  onPresetSideChange,
+  onPresetSelect,
+  onPractice,
+  onEdit,
+  onManage,
+}: PracticeLibraryProps) {
   const rows = useRepertoireRows(repertoires, reviewStates);
   return (
     <section className="mx-auto w-[min(1180px,calc(100%-56px))] flex-1 py-11">
-      <PageHeading title="WHAT ARE WE DRILLING?" detail="" />
+      <PageHeading
+        title="WHAT ARE WE DRILLING?"
+        detail=""
+        action={<OpeningPicker repertoires={repertoires} side={presetSide} onSideChange={onPresetSideChange} onSelect={onPresetSelect} />}
+      />
       {repertoires.length === 0 ? (
         <EmptyPanel
           icon="♟"

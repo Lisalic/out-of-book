@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { Chessboard } from "./chessboard";
+import { SoundToggle } from "./board-sound";
+import { BestMoveButton } from "./best-move-button";
+import { useBestMove } from "./use-best-move";
 import { EvalBar } from "./eval-bar";
 import { RepertoireLine } from "./repertoire-line";
 import { useBoardFlip } from "./use-board-flip";
@@ -81,6 +84,11 @@ export function RepertoireEditor({
   const { flipped: boardFlipped, toggle: toggleFlip } = useBoardFlip();
   const position = repertoire.graph.positions[positionId];
   const evaluation = useLiveEvaluation(position.fen);
+  const bestMove = useBestMove({
+    fen: position.fen,
+    contextKey: JSON.stringify([repertoire.id, repertoire.revision, positionId, history]),
+    onMove,
+  });
 
   function previewImport() {
     try {
@@ -104,6 +112,17 @@ export function RepertoireEditor({
 
   const branchOptions = activeEdges(repertoire.graph, positionId);
   const previous = history.at(-1);
+  const lastMove = previous ? activeEdges(repertoire.graph, previous).find((edge) => edge.to === positionId)?.uci : undefined;
+  const [soundNavigation, setSoundNavigation] = useState({ positionId, historyLength: history.length, move: null as string | null });
+  if (soundNavigation.positionId !== positionId || soundNavigation.historyLength !== history.length) {
+    const historyDelta = history.length - soundNavigation.historyLength;
+    const soundFrom = historyDelta === 1 ? soundNavigation.positionId : historyDelta === -1 ? positionId : undefined;
+    const soundTo = historyDelta === 1 ? positionId : historyDelta === -1 ? soundNavigation.positionId : undefined;
+    const move = soundFrom && soundTo
+      ? activeEdges(repertoire.graph, soundFrom).find((edge) => edge.to === soundTo)?.uci ?? null
+      : null;
+    setSoundNavigation({ positionId, historyLength: history.length, move });
+  }
 
   useBoardKeys({
     onFlip: toggleFlip,
@@ -139,23 +158,32 @@ export function RepertoireEditor({
               <Chessboard
                 fen={position.fen}
                 orientation={boardFlipped ? (repertoire.traineeColor === "white" ? "black" : "white") : repertoire.traineeColor}
+                lastMove={lastMove}
+                soundMove={soundNavigation.move}
                 onMove={onMove}
               />
             </div>
           </div>
-          <div className="mt-0.5 grid grid-cols-4 gap-0.5">
+          <div className="mt-0.5 flex flex-wrap gap-0.5" role="group" aria-label="Board controls">
             <button
               type="button"
               disabled={!history.length}
-              className="btn justify-start px-4.5 py-4 disabled:opacity-30"
+              className="btn h-12 flex-auto px-3 disabled:opacity-30"
               onClick={() => { const prev = history.at(-1); if (prev) onNavigate(prev, history.slice(0, -1)); }}
             >
               ← Previous
             </button>
-            <button type="button" className="btn justify-start px-4.5 py-4" onClick={() => onNavigate(repertoire.graph.roots[0], [])}>Start position</button>
-            <button type="button" className="btn justify-start px-4.5 py-4" onClick={toggleFlip}>Flip ⇅</button>
-            <button type="button" className="btn justify-start px-4.5 py-4" onClick={() => downloadPgn(repertoire)}>Export PGN</button>
+            <button type="button" className="btn h-12 flex-auto px-3" onClick={() => onNavigate(repertoire.graph.roots[0], [])}>Start position</button>
+            <div className="flex flex-none gap-0.5">
+              <BestMoveButton onClick={bestMove.play} disabled={bestMove.disabled} thinking={bestMove.thinking} className="btn h-12 w-12 flex-none px-0" />
+              <button type="button" className="btn h-12 w-12 flex-none px-0 text-xl" onClick={toggleFlip} aria-label="Flip board" title="Flip board">
+                <span aria-hidden="true">⇅</span>
+              </button>
+              <SoundToggle className="btn h-12 w-12 flex-none px-0" />
+            </div>
+            <button type="button" className="btn h-12 flex-auto px-3" onClick={() => downloadPgn(repertoire)}>Export PGN</button>
           </div>
+          {bestMove.error && <p role="alert" className="mt-2 text-sm text-danger">{bestMove.error}</p>}
         </div>
 
         <aside className="flex flex-col gap-0.5">

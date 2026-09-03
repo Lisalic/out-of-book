@@ -7,15 +7,27 @@ import type { PositionGraph, Repertoire, TraineeColor } from "./types";
 export const DEFAULT_REPERTOIRE_NAME = "Untitled repertoire";
 
 export function createRepertoire(
-  options: { name?: string; traineeColor?: TraineeColor; rootFen?: string; now?: number } = {},
+  options: {
+    name?: string;
+    traineeColor?: TraineeColor;
+    rootFen?: string;
+    /** A pre-built graph — e.g. imported from an opening preset's PGN — in place of an empty one. */
+    graph?: PositionGraph;
+    sourcePresetId?: string;
+    now?: number;
+  } = {},
 ): Repertoire {
   const timestamp = new Date(options.now ?? Date.now()).toISOString();
-  const graph = emptyGraph();
-  graph.roots.push(ensurePosition(graph, options.rootFen ?? START_FEN, 0).id);
+  let graph = options.graph;
+  if (!graph) {
+    graph = emptyGraph();
+    graph.roots.push(ensurePosition(graph, options.rootFen ?? START_FEN, 0).id);
+  }
   return {
     id: createId("repertoire"),
     name: options.name ?? DEFAULT_REPERTOIRE_NAME,
     traineeColor: options.traineeColor ?? "white",
+    sourcePresetId: options.sourcePresetId,
     graph,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -30,7 +42,7 @@ export function createRepertoire(
  */
 export function reviseRepertoire(
   repertoire: Repertoire,
-  changes: Partial<Pick<Repertoire, "name" | "traineeColor" | "graph">>,
+  changes: Partial<Pick<Repertoire, "name" | "traineeColor" | "graph" | "sourcePresetId">>,
   now = Date.now(),
 ): Repertoire {
   return {

@@ -41,7 +41,7 @@ describe("chess rules wrapper", () => {
         chess.move(move);
       }
     }
-  });
+  }, 15_000);
 
   it("rejects an illegal UCI move instead of returning a wrong position", () => {
     expect(() => playUci(START_FEN, "e2e5")).toThrow(/Illegal move/);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppHeader, type AppSection } from "./app-header";
 import { HomeScreen, PracticeLibrary, RepertoireManager } from "./library-screens";
 import { PracticeSetup, TrainingScreen } from "./practice-screens";
@@ -10,7 +10,9 @@ import { useDrillSession } from "./use-drill-session";
 import { useRepertoireLibrary } from "./use-repertoire-library";
 import { useTrainingEngine } from "./use-training-engine";
 import { activeEdges, addGraphMove, mergeGraphs, setMainlineEdge, softDeleteEdge } from "@/lib/chess/graph";
-import { withTraineeColor } from "@/lib/chess/repertoire";
+import { presetMovetext, type OpeningPreset } from "@/lib/chess/opening-presets";
+import { importPgn } from "@/lib/chess/pgn";
+import { createRepertoire, withTraineeColor } from "@/lib/chess/repertoire";
 import {
   completeSession,
   playPendingMoveAnyway,
@@ -40,6 +42,8 @@ export function SparringApp() {
   const [frequency, setFrequency] = useState<DeviationFrequency>("low");
   const [sessionSize, setSessionSize] = useState<number | "all">(20);
   const [session, setSession] = useState<TrainingSession>();
+  const [presetSide, setPresetSide] = useState<TraineeColor>("white");
+  const presetSelectionPending = useRef(false);
 
   const resumeSession = useCallback((saved: TrainingSession) => {
     setSelectedId(saved.repertoireId);
@@ -77,7 +81,7 @@ export function SparringApp() {
     setScreen("editor");
   }
 
-  async function createRepertoire(tab: EditorTab = "moves") {
+  async function createRepertoireDraft(tab: EditorTab = "moves") {
     const created = await library.create();
     openEditor(created.id, created.graph.roots[0], tab);
   }
@@ -85,6 +89,46 @@ export function SparringApp() {
   function editRepertoire(id: string) {
     const target = library.repertoires.find((item) => item.id === id);
     if (target) openEditor(id, target.graph.roots[0], "moves");
+  }
+
+  function startPractice(id: string) {
+    setSelectedId(id);
+    setScreen("setup");
+  }
+
+  /** Adopts a built-in opening preset: reuses the repertoire it already made for this side, or builds one. */
+  async function selectPreset(preset: OpeningPreset) {
+    if (presetSelectionPending.current) return;
+    presetSelectionPending.current = true;
+    try {
+      const existing = library.repertoires.find(
+        (item) => item.sourcePresetId === preset.id && item.traineeColor === presetSide,
+      );
+      if (existing) {
+        startPractice(existing.id);
+        return;
+      }
+
+      let graph: PositionGraph;
+      try {
+        graph = importPgn(presetMovetext(preset), presetSide).graph;
+      } catch {
+        library.reportError("This opening preset could not be loaded.");
+        return;
+      }
+
+      const created = await library.add(
+        createRepertoire({
+          name: `${preset.name} · ${presetSide === "white" ? "White" : "Black"}`,
+          traineeColor: presetSide,
+          sourcePresetId: preset.id,
+          graph,
+        }),
+      );
+      startPractice(created.id);
+    } finally {
+      presetSelectionPending.current = false;
+    }
   }
 
   async function removeRepertoire(id: string) {
@@ -97,7 +141,12 @@ export function SparringApp() {
 
   function changeColor(color: TraineeColor) {
     if (!repertoire || color === repertoire.traineeColor) return;
-    void library.revise(repertoire, { traineeColor: color, graph: withTraineeColor(repertoire.graph, color) });
+    void library.revise(repertoire, {
+      traineeColor: color,
+      // A preset is tied to the side it was imported for; switching sides breaks that link.
+      sourcePresetId: undefined,
+      graph: withTraineeColor(repertoire.graph, color),
+    });
   }
 
   /** Board moves in the editor either follow an existing branch or save a new one. */
@@ -167,7 +216,7 @@ export function SparringApp() {
           session={session}
           onPractice={() => setScreen("practice")}
           onManage={() => setScreen("manage")}
-          onCreate={(tab) => void createRepertoire(tab)}
+          onCreate={(tab) => void createRepertoireDraft(tab)}
           onResume={() => session && setScreen(session.phase === "review" ? "review" : "train")}
           onEdit={editRepertoire}
         />
@@ -176,7 +225,10 @@ export function SparringApp() {
         <PracticeLibrary
           repertoires={library.repertoires}
           reviewStates={library.reviewStates}
-          onPractice={(id) => { setSelectedId(id); setScreen("setup"); }}
+          presetSide={presetSide}
+          onPresetSideChange={setPresetSide}
+          onPresetSelect={selectPreset}
+          onPractice={startPractice}
           onEdit={editRepertoire}
           onManage={() => setScreen("manage")}
         />
@@ -185,7 +237,7 @@ export function SparringApp() {
         <RepertoireManager
           repertoires={library.repertoires}
           reviewStates={library.reviewStates}
-          onCreate={() => void createRepertoire()}
+          onCreate={() => void createRepertoireDraft()}
           onEdit={editRepertoire}
           onDelete={(id) => void removeRepertoire(id)}
         />

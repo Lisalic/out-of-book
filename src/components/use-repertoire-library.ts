@@ -29,6 +29,8 @@ export interface RepertoireLibrary {
   dismissError: () => void;
   /** Creates, saves, and returns a new empty repertoire. */
   create: () => Promise<Repertoire>;
+  /** Saves and returns an already-built repertoire — e.g. one seeded from an opening preset. */
+  add: (repertoire: Repertoire) => Promise<Repertoire>;
   /** Applies an edit — revision bump, `updatedAt`, optimistic list update, then the write. */
   revise: (repertoire: Repertoire, changes: Parameters<typeof reviseRepertoire>[1]) => Promise<Repertoire>;
   remove: (id: string) => Promise<boolean>;
@@ -88,6 +90,7 @@ export function useRepertoireLibrary(
   }, []);
 
   const create = useCallback(async () => persist(createRepertoire()), [persist]);
+  const add = useCallback(async (repertoire: Repertoire) => persist(repertoire), [persist]);
 
   const revise = useCallback(
     async (repertoire: Repertoire, changes: Parameters<typeof reviseRepertoire>[1]) =>
@@ -122,6 +125,7 @@ export function useRepertoireLibrary(
     reportError: setError,
     dismissError: useCallback(() => setError(undefined), []),
     create,
+    add,
     revise,
     remove,
     recordReviewStates,

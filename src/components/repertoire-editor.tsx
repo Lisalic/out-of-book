@@ -216,7 +216,23 @@ export function RepertoireEditor({
               </label>
               <label className="mono mt-3.5 block bg-canvas p-3.5 text-xs text-ink-muted">
                 Choose a PGN file
-                <input type="file" accept=".pgn,text/plain" className="mt-1.5 block w-full text-xs" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then((text) => { setPgn(text); setPreview(undefined); }); }} />
+                <input
+                  type="file"
+                  accept=".pgn,text/plain"
+                  className="mt-1.5 block w-full text-xs"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    void file
+                      .text()
+                      .then((text) => {
+                        setPgn(text);
+                        setPreview(undefined);
+                        setError(undefined);
+                      })
+                      .catch(() => setError("That file could not be read."));
+                  }}
+                />
               </label>
               {error && <p role="alert" className="mt-3.5 bg-danger-weak p-3.5 text-danger">{error}</p>}
               {preview ? (

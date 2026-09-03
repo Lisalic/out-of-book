@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { activeEdges } from "@/lib/chess/graph";
 import { seededRandom, selectDeviation } from "@/lib/chess/deviation";
-import { BrowserLozzaAdapter } from "@/lib/chess/engine-adapter";
+import { isAbortError } from "@/lib/chess/engine-adapter";
 import { moveTimeForStrength, weightedCandidate } from "@/lib/chess/engine-strength";
+import { whitePerspectiveCp } from "@/lib/chess/evaluation";
 import { legalMoves } from "@/lib/chess/rules";
 import {
   applyEngineMove,
@@ -12,12 +13,28 @@ import {
   beginEngineTakeover,
   setLineEvaluation,
 } from "@/lib/chess/training-machine";
+import { useEngine, type EngineFactory } from "./use-engine";
 import type { MoveEdge, Repertoire, TrainingSession } from "@/lib/chess/types";
 
 export type EngineStatus = "idle" | "thinking" | "evaluating";
 
+/** How long the opponent "thinks" before replaying a book move — the move is already known. */
+const BOOK_MOVE_DELAY_MS = 220;
+const FINAL_EVALUATION_MS = 900;
+
 function sessionKey(session: TrainingSession): string {
   return [session.id, session.phase, session.fen, session.moves.length, session.drill?.currentLineIndex ?? 0].join(":");
+}
+
+function isOpponentTurn(session: TrainingSession): boolean {
+  return session.phase === "opponent_book_turn" || session.phase === "opponent_engine_turn";
+}
+
+/** True while a finished line is still waiting on the engine's verdict on the final position. */
+function awaitsFinalEvaluation(session: TrainingSession): boolean {
+  return session.phase === "complete"
+    && session.lineCompletionReason !== "checkmate"
+    && session.lineEvaluationCp === undefined;
 }
 
 function chooseBookMove(edges: MoveEdge[], plannedUci: string | undefined, seed: number): MoveEdge {
@@ -33,6 +50,7 @@ function chooseBookMove(edges: MoveEdge[], plannedUci: string | undefined, seed:
   return edges[0];
 }
 
+/** Last resort when the engine is unavailable mid-game: a legal move, preferring forcing ones. */
 function fallbackMove(fen: string, excluded: string[] = []): string | undefined {
   const blocked = new Set(excluded);
   return legalMoves(fen)
@@ -40,24 +58,27 @@ function fallbackMove(fen: string, excluded: string[] = []): string | undefined 
     .sort((a, b) => Number(/[+#]/.test(b.san)) - Number(/[+#]/.test(a.san)) || Number(b.san.includes("x")) - Number(a.san.includes("x")))[0]?.uci;
 }
 
+/** A per-line, per-ply seed: deterministic within one position, different across positions. */
+function moveSeed(session: TrainingSession, salt: number): number {
+  return Date.now() + session.moves.length + (session.drill?.currentLineIndex ?? 0) * salt;
+}
+
 export function useTrainingEngine(
   active: boolean,
   session: TrainingSession | undefined,
   repertoire: Repertoire | undefined,
   setSession: React.Dispatch<React.SetStateAction<TrainingSession | undefined>>,
+  createEngine?: EngineFactory,
 ) {
-  const engine = useRef<BrowserLozzaAdapter | undefined>(undefined);
-  const status: EngineStatus = session?.phase === "opponent_book_turn" || session?.phase === "opponent_engine_turn"
+  const engine = useEngine(createEngine);
+  const status: EngineStatus = session && isOpponentTurn(session)
     ? "thinking"
-    : session?.phase === "complete" && session.lineCompletionReason !== "checkmate" && session.lineEvaluationCp === undefined
+    : session && awaitsFinalEvaluation(session)
       ? "evaluating"
       : "idle";
 
-  useEffect(() => () => engine.current?.dispose(), []);
-
   useEffect(() => {
-    if (!active || !session || !repertoire) return;
-    if (session.phase !== "opponent_book_turn" && session.phase !== "opponent_engine_turn") return;
+    if (!active || !session || !repertoire || !isOpponentTurn(session)) return;
     const snapshot = session;
     const key = sessionKey(snapshot);
     let cancelled = false;
@@ -75,15 +96,14 @@ export function useTrainingEngine(
         && snapshot.takeoverReason === null;
 
       if (snapshot.phase === "opponent_book_turn" && !deviationDue && edges.length) {
-        await new Promise((resolve) => window.setTimeout(resolve, 220));
+        await new Promise((resolve) => window.setTimeout(resolve, BOOK_MOVE_DELAY_MS));
         const plannedUci = snapshot.drill?.lines[snapshot.drill.currentLineIndex]?.edgeUcis[snapshot.moves.length];
         commit(applyOpponentBookMove(snapshot, repertoire.graph, chooseBookMove(edges, plannedUci, snapshot.moves.length + 17)));
         return;
       }
 
-      const adapter = (engine.current ??= new BrowserLozzaAdapter());
       try {
-        const analysis = await adapter.analyze(snapshot.fen, {
+        const analysis = await engine.get().analyze(snapshot.fen, {
           multiPv: deviationDue ? 6 : 4,
           // Lozza is pure JS, not WASM — it needs more wall-clock time than Stockfish did to
           // reach the depth where MultiPV actually populates more than one candidate.
@@ -95,7 +115,7 @@ export function useTrainingEngine(
             edges.map((edge) => edge.uci),
             legalMoves(snapshot.fen).map((move) => move.uci),
             snapshot.strength,
-            seededRandom(Date.now() + snapshot.moves.length + (snapshot.drill?.currentLineIndex ?? 0) * 997),
+            seededRandom(moveSeed(snapshot, 997)),
           );
           if (selected) {
             commit(applyEngineMove(beginEngineTakeover(snapshot), selected.uci));
@@ -108,14 +128,10 @@ export function useTrainingEngine(
         }
         // Lozza has no engine-side strength limiter — play at the requested approximate
         // strength by weighting which MultiPV candidate is chosen, not always the top one.
-        const played = weightedCandidate(
-          analysis.candidates,
-          snapshot.strength,
-          seededRandom(Date.now() + snapshot.moves.length + (snapshot.drill?.currentLineIndex ?? 0) * 991),
-        );
+        const played = weightedCandidate(analysis.candidates, snapshot.strength, seededRandom(moveSeed(snapshot, 991)));
         commit(applyEngineMove(snapshot, played?.uci ?? analysis.bestMove));
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (isAbortError(error)) return;
         const excluded = deviationDue ? edges.map((edge) => edge.uci) : [];
         const move = fallbackMove(snapshot.fen, excluded) ?? fallbackMove(snapshot.fen);
         if (!move) return;
@@ -127,47 +143,42 @@ export function useTrainingEngine(
     void play();
     return () => {
       cancelled = true;
-      engine.current?.stop();
+      engine.stop();
     };
-  }, [active, session, repertoire, setSession]);
+  }, [active, session, repertoire, setSession, engine]);
 
   useEffect(() => {
-    if (!active || !session || session.phase !== "complete") return;
-    if (session.lineCompletionReason === "checkmate" || session.lineEvaluationCp !== undefined) return;
+    if (!active || !session || !awaitsFinalEvaluation(session)) return;
     const snapshot = session;
     const key = sessionKey(snapshot);
     let cancelled = false;
 
+    const record = (evaluation: number | null) => {
+      if (cancelled) return;
+      setSession((current) => current && sessionKey(current) === key ? setLineEvaluation(current, evaluation) : current);
+    };
+
     const analyze = async () => {
       try {
-        const adapter = (engine.current ??= new BrowserLozzaAdapter());
         // Full-strength, deeper analysis for the final-position score — this must not use
         // the same weighted/limited play the trainee's opponent used during the game.
-        const result = await adapter.analyze(snapshot.fen, { multiPv: 1, moveTimeMs: 900 });
-        const candidate = result.candidates.find((item) => item.uci === result.bestMove) ?? result.candidates[0];
-        const evaluation = candidate
-          ? (snapshot.fen.split(" ")[1] === "w" ? candidate.scoreCp : -candidate.scoreCp)
-          : null;
-        if (!cancelled) {
-          setSession((current) => current && sessionKey(current) === key ? setLineEvaluation(current, evaluation) : current);
-        }
+        const result = await engine.get().analyze(snapshot.fen, { multiPv: 1, moveTimeMs: FINAL_EVALUATION_MS });
+        record(whitePerspectiveCp(result, snapshot.fen));
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (!cancelled) {
-          setSession((current) => current && sessionKey(current) === key ? setLineEvaluation(current, null) : current);
-        }
+        if (isAbortError(error)) return;
+        record(null);
       }
     };
 
     void analyze();
     return () => {
       cancelled = true;
-      engine.current?.stop();
+      engine.stop();
     };
-  }, [active, session, setSession]);
+  }, [active, session, setSession, engine]);
 
   return {
     status,
-    stop: () => engine.current?.stop(),
+    stop: () => engine.stop(),
   };
 }

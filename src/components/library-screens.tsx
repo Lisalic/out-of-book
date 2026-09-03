@@ -5,7 +5,14 @@ import { Chessboard } from "./chessboard";
 import { decisionPositions, dueLineCount, repertoireLines } from "@/lib/chess/scheduling";
 import type { Repertoire, ReviewState, TrainingSession } from "@/lib/chess/types";
 
-function repertoireStats(repertoire: Repertoire, states: ReviewState[]) {
+export interface RepertoireStats {
+  decisions: number;
+  lines: number;
+  coverage: number;
+  due: number;
+}
+
+function repertoireStats(repertoire: Repertoire, states: ReviewState[]): RepertoireStats {
   const decisions = decisionPositions(repertoire.graph, repertoire.traineeColor);
   const lines = repertoireLines(repertoire.graph, repertoire.traineeColor);
   const repStates = states.filter((state) => state.repertoireId === repertoire.id);
@@ -16,6 +23,22 @@ function repertoireStats(repertoire: Repertoire, states: ReviewState[]) {
     coverage: decisions.length ? Math.round((reviewed / decisions.length) * 100) : 0,
     due: dueLineCount(lines, new Map(repStates.map((state) => [state.positionKey, state]))),
   };
+}
+
+interface RepertoireRow {
+  repertoire: Repertoire;
+  stats: RepertoireStats;
+}
+
+/**
+ * Stats are two graph traversals per repertoire, so they are computed once per list rather
+ * than inside each row's render.
+ */
+function useRepertoireRows(repertoires: Repertoire[], reviewStates: ReviewState[]): RepertoireRow[] {
+  return useMemo(
+    () => repertoires.map((repertoire) => ({ repertoire, stats: repertoireStats(repertoire, reviewStates) })),
+    [repertoires, reviewStates],
+  );
 }
 
 function SideChip({ color, size = "md" }: { color: Repertoire["traineeColor"]; size?: "md" | "lg" }) {
@@ -41,9 +64,7 @@ function CoverageBar({ percent }: { percent: number }) {
   );
 }
 
-interface RepertoireRowProps {
-  repertoire: Repertoire;
-  stats: ReturnType<typeof repertoireStats>;
+interface RepertoireRowProps extends RepertoireRow {
   actions: React.ReactNode;
 }
 
@@ -128,10 +149,7 @@ export function HomeScreen({ repertoires, reviewStates, session, onPractice, onM
   // Due-date math only needs day-granularity freshness; a "now" fixed at mount avoids
   // calling Date.now() during render while staying accurate for the life of this screen.
   const [now] = useState(() => Date.now());
-  const rows = useMemo(
-    () => repertoires.map((repertoire) => ({ repertoire, stats: repertoireStats(repertoire, reviewStates) })),
-    [repertoires, reviewStates],
-  );
+  const rows = useRepertoireRows(repertoires, reviewStates);
   const totalDue = useMemo(() => rows.reduce((sum, row) => sum + row.stats.due, 0), [rows]);
   const totalLines = useMemo(() => rows.reduce((sum, row) => sum + row.stats.lines, 0), [rows]);
   const dateLabel = useMemo(() => new Date(now).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }), [now]);
@@ -229,6 +247,7 @@ interface PracticeLibraryProps {
 }
 
 export function PracticeLibrary({ repertoires, reviewStates, onPractice, onEdit, onManage }: PracticeLibraryProps) {
+  const rows = useRepertoireRows(repertoires, reviewStates);
   return (
     <section className="mx-auto w-[min(1180px,calc(100%-56px))] flex-1 py-11">
       <PageHeading title="WHAT ARE WE DRILLING?" detail="" />
@@ -241,8 +260,7 @@ export function PracticeLibrary({ repertoires, reviewStates, onPractice, onEdit,
         />
       ) : (
         <div className="flex flex-col gap-0.5">
-          {repertoires.map((repertoire) => {
-            const stats = repertoireStats(repertoire, reviewStates);
+          {rows.map(({ repertoire, stats }) => {
             const ready = stats.decisions > 0;
             return (
               <RepertoireRow
@@ -275,6 +293,7 @@ interface RepertoireManagerProps {
 }
 
 export function RepertoireManager({ repertoires, reviewStates, onCreate, onEdit, onDelete }: RepertoireManagerProps) {
+  const rows = useRepertoireRows(repertoires, reviewStates);
   return (
     <section className="mx-auto w-[min(1180px,calc(100%-56px))] flex-1 py-11">
       <PageHeading
@@ -292,22 +311,19 @@ export function RepertoireManager({ repertoires, reviewStates, onCreate, onEdit,
         />
       ) : (
         <div className="flex flex-col gap-0.5">
-          {repertoires.map((repertoire) => {
-            const stats = repertoireStats(repertoire, reviewStates);
-            return (
-              <RepertoireRow
-                key={repertoire.id}
-                repertoire={repertoire}
-                stats={stats}
-                actions={
-                  <>
-                    <button type="button" className="btn" onClick={() => onEdit(repertoire.id)}>Edit</button>
-                    <button type="button" className="btn btn-danger" onClick={() => onDelete(repertoire.id)}>×</button>
-                  </>
-                }
-              />
-            );
-          })}
+          {rows.map(({ repertoire, stats }) => (
+            <RepertoireRow
+              key={repertoire.id}
+              repertoire={repertoire}
+              stats={stats}
+              actions={
+                <>
+                  <button type="button" className="btn" onClick={() => onEdit(repertoire.id)}>Edit</button>
+                  <button type="button" className="btn btn-danger" onClick={() => onDelete(repertoire.id)}>×</button>
+                </>
+              }
+            />
+          ))}
         </div>
       )}
     </section>

@@ -4,8 +4,21 @@ export default function LicensesPage() {
   return (
     <main className="mx-auto my-16 w-[min(760px,calc(100%-56px))] leading-relaxed">
       <Link href="/" className="mono text-xs font-bold tracking-wide text-accent uppercase hover:text-ink">← Back to Out of Book</Link>
-      <h1 className="mt-6 mb-3 text-5xl font-bold tracking-tighter">OPEN-SOURCE LICENSES</h1>
+      <h1 className="mt-6 mb-3 text-5xl font-bold tracking-tighter">LICENSES &amp; NOTICES</h1>
       <div className="mt-8 flex flex-col gap-0.5">
+        <section className="panel p-6.5">
+          <h2 className="text-xl font-semibold tracking-tight">Lichess standard sound pack</h2>
+          <p className="mt-2.5 text-ink-muted">
+            Sourced from Lichess&apos;s standard sound directory. Upstream lists these sounds among
+            its non-free exceptions; no redistribution license has been verified. Inclusion here
+            does not grant permission to redistribute them.
+          </p>
+          <p className="mono mt-3 text-xs">
+            <a className="text-accent hover:text-ink" href="https://github.com/lichess-org/lila/tree/3a5a2c5a1ef0abbfa74fccf06c50582c2d0dad65/public/sound/standard">Source files</a>
+            {" · "}<a className="text-accent hover:text-ink" href="/sounds/lichess-standard/COPYING.md">Upstream copying notice</a>
+            {" · "}<a className="text-accent hover:text-ink" href="/sounds/lichess-standard/README.md">Asset provenance</a>
+          </p>
+        </section>
         <section className="panel p-6.5">
           <h2 className="text-xl font-semibold tracking-tight">Lozza 11</h2>
           <p className="mt-2.5 text-ink-muted">Copyright © Colin Jenkins. Distributed under the MIT License.</p>

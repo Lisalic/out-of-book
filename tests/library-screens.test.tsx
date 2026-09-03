@@ -62,6 +62,7 @@ describe("repertoire navigation screens", () => {
     );
 
     expect(screen.getByRole("button", { name: "Import a PGN" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Mute board sounds" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Import a PGN" }));
     expect(onCreate).toHaveBeenCalledExactlyOnceWith("import");
 

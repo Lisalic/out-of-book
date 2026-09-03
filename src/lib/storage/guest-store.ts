@@ -62,18 +62,11 @@ export async function getLatestActiveSession(): Promise<TrainingSession | undefi
   return sessions.reverse().find((session) => session.phase !== "review" && session.phase !== "complete");
 }
 
-export async function listReviewStates(repertoireId: string): Promise<ReviewState[]> {
-  return (await db()).getAllFromIndex("learning", "by-repertoire", repertoireId);
-}
-
 export async function listAllReviewStates(): Promise<ReviewState[]> {
   return (await db()).getAll("learning");
 }
 
-export async function saveReviewState(state: ReviewState): Promise<void> {
-  await (await db()).put("learning", state);
-}
-
+/** One transaction for a whole line's grades: a partially written batch would leave the schedule inconsistent. */
 export async function saveReviewStates(states: ReviewState[]): Promise<void> {
   const handle = await db();
   const tx = handle.transaction("learning", "readwrite");

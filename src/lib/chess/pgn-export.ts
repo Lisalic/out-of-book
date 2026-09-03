@@ -1,5 +1,5 @@
 import { activeEdges } from "./graph";
-import { positionKey, fenTurn } from "./position-key";
+import { fenMoveNumber, fenTurn, positionKey } from "./position-key";
 import { START_FEN } from "./rules";
 import type { MoveEdge, PositionGraph } from "./types";
 
@@ -20,7 +20,7 @@ function renderFrom(graph: PositionGraph, positionId: string, forceNumberForBlac
   if (!edges.length) return "";
   const [mainEdge, ...alternates] = edges;
   const position = graph.positions[positionId];
-  const moveNumber = Number(position.fen.split(" ")[5]) || 1;
+  const moveNumber = fenMoveNumber(position.fen);
   const isWhite = fenTurn(position.fen) === "white";
 
   let out = isWhite ? `${moveNumber}. ` : forceNumberForBlack ? `${moveNumber}... ` : "";

@@ -1,15 +1,7 @@
 import { Chess } from "chess.js";
 import { openDB } from "idb";
 import { afterEach, describe, expect, it } from "vitest";
-
-function deleteDatabase(name: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(name);
-    request.onsuccess = () => resolve();
-    request.onblocked = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
+import { resetDatabase } from "./helpers/database";
 import { importPgn } from "@/lib/chess/pgn";
 import { initialReviewState } from "@/lib/chess/scheduling";
 import { createTrainingSession } from "@/lib/chess/training-machine";
@@ -18,17 +10,12 @@ import {
   getLatestActiveSession,
   listAllReviewStates,
   listRepertoires,
-  listReviewStates,
-  resetDatabaseHandleForTests,
   saveRepertoire,
-  saveReviewState,
+  saveReviewStates,
   saveSession,
 } from "@/lib/storage/guest-store";
 
-afterEach(async () => {
-  await resetDatabaseHandleForTests();
-  await deleteDatabase("out-of-book");
-});
+afterEach(resetDatabase);
 
 describe("guest IndexedDB store", () => {
   it("persists repertoires and active sessions", async () => {
@@ -48,25 +35,33 @@ describe("guest IndexedDB store", () => {
     expect((await getLatestActiveSession())?.id).toBe("s-live");
   });
 
-  it("stores and lists spaced-repetition review state per repertoire", async () => {
+  it("writes a batch of review states in one transaction and reads them all back", async () => {
     const state = initialReviewState("rep-a", "pos-1", Date.parse("2026-01-01"));
-    await saveReviewState(state);
-    await saveReviewState(initialReviewState("rep-b", "pos-2", Date.parse("2026-01-01")));
-    expect(await listReviewStates("rep-a")).toEqual([state]);
-    expect(await listAllReviewStates()).toHaveLength(2);
+    await saveReviewStates([state, initialReviewState("rep-b", "pos-2", Date.parse("2026-01-01"))]);
+    const stored = await listAllReviewStates();
+    expect(stored).toHaveLength(2);
+    expect(stored.find((item) => item.repertoireId === "rep-a")).toEqual(state);
+  });
+
+  it("overwrites an existing review state rather than duplicating it", async () => {
+    const first = initialReviewState("rep-a", "pos-1", Date.parse("2026-01-01"));
+    await saveReviewStates([first]);
+    await saveReviewStates([{ ...first, reps: 3, intervalDays: 7 }]);
+    const stored = await listAllReviewStates();
+    expect(stored).toHaveLength(1);
+    expect(stored[0].reps).toBe(3);
   });
 
   it("deletes a repertoire's review state along with the repertoire", async () => {
     const graph = importPgn("1. e4 e5 *", "white").graph;
     await saveRepertoire({ id: "rep-gone", name: "Gone", traineeColor: "white", graph, createdAt: "2026-01-01", updatedAt: "2026-01-01", revision: 1 });
-    await saveReviewState(initialReviewState("rep-gone", "pos-1"));
+    await saveReviewStates([initialReviewState("rep-gone", "pos-1"), initialReviewState("rep-kept", "pos-2")]);
     await deleteRepertoire("rep-gone");
-    expect(await listReviewStates("rep-gone")).toHaveLength(0);
+    expect((await listAllReviewStates()).map((state) => state.repertoireId)).toEqual(["rep-kept"]);
   });
 
   it("migrates a v1 database (repertoires, sessions, outbox) forward: outbox is dropped, learning is added, existing data survives", async () => {
-    await resetDatabaseHandleForTests();
-    await deleteDatabase("out-of-book");
+    await resetDatabase();
     const legacy = await openDB("out-of-book", 1, {
       upgrade(db) {
         db.createObjectStore("repertoires", { keyPath: "id" });

@@ -27,11 +27,18 @@ export function legalMoves(fen: string, from?: Square): LegalMove[] {
 
 export function playUci(fen: string, uci: string): { fen: string; san: string; uci: string } {
   const chess = new Chess(fen);
-  const move = chess.move({
-    from: uci.slice(0, 2),
-    to: uci.slice(2, 4),
-    promotion: uci.slice(4, 5) || undefined,
-  });
+  // chess.js signals an illegal move by throwing its own parse error rather than returning
+  // null; both are normalized here so callers see one message naming the move they sent.
+  let move;
+  try {
+    move = chess.move({
+      from: uci.slice(0, 2),
+      to: uci.slice(2, 4),
+      promotion: uci.slice(4, 5) || undefined,
+    });
+  } catch {
+    move = undefined;
+  }
   if (!move) throw new Error(`Illegal move: ${uci}`);
   return { fen: chess.fen(), san: move.san, uci: moveToUci(move) };
 }

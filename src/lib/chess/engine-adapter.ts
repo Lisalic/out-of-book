@@ -19,6 +19,11 @@ export interface EngineAdapter {
   dispose(): void;
 }
 
+/** A search this adapter cancelled itself (`stop`, or a replacement search) — never a real failure to report or fall back from. */
+export function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 export function parseEngineInfo(line: string): { multipv: number; candidate: EngineCandidate } | null {
   const depth = line.match(/\bdepth (\d+)/);
   const score = line.match(/\bscore (cp|mate) (-?\d+)/);
@@ -146,6 +151,7 @@ export class BrowserLozzaAdapter implements EngineAdapter {
       const cancel = () => finish(new DOMException("Search replaced", "AbortError"));
       this.cancelSearch = cancel;
       worker.addEventListener("message", onMessage);
+      worker.addEventListener("error", onWorkerError);
       worker.postMessage(`setoption name MultiPV value ${multiPv}`);
       worker.postMessage(`position fen ${fen}`);
       worker.postMessage(`go movetime ${moveTimeMs}`);
